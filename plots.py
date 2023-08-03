@@ -182,10 +182,11 @@ def is_plot_visible(method_name):
 
 
 def extract_event_data(method_path, tag_, task_dir):
-    mode = tag_.split("/")[0].lower()
+    mode = tag_.split('/')[0].lower()
     if mode == "local_test":
         mode = "test"
     task_path = os.path.join(method_path, mode, task_dir)
+    print("task_path  ", task_path)
     if not os.path.exists(task_path):
         print(f"Directory {task_path} does not exist.")
         return None, None
@@ -221,7 +222,7 @@ def extract_label(param_dir):
 
 
 def handle_method(ax, method_dir, tag_, task_dir):
-    method = method_dir.split("/")[-1]
+    method = method_dir.split(os.path.sep)[-1]
     for param_dir in os.listdir(method_dir):
         if not check_lr_samp(param_dir):
             print("sample pass...")
@@ -242,7 +243,7 @@ def handle_method(ax, method_dir, tag_, task_dir):
 
 
 def handle_2dir_method(ax, method_dir, tag_, task_dir):
-    method = method_dir.split("/")[-1]
+    method = method_dir.split(os.path.sep)[-1]
     print("method", method)
     for sampling_dir in os.listdir(method_dir):
         if not check_lr_samp(sampling_dir):
@@ -276,9 +277,9 @@ def handle_2dir_method(ax, method_dir, tag_, task_dir):
 
 def make_plot(path_, tag_, task_dir, save_path):
     fig, ax = plt.subplots(figsize=(36, 30))
-    dataset = path_.split("/")[-1]
-    mode = tag_.split("/")[0].lower()
-    print(path_)
+    dataset = path_.split(os.path.sep)[-1]
+    mode = tag_.split('/')[0].lower()
+    print("mode  ", mode)
     if task_dir != "global" and mode == "local_test":
         return
     if mode == "local_test":
@@ -305,7 +306,11 @@ def make_plot(path_, tag_, task_dir, save_path):
     ax.legend(fontsize=40)
 
     os.makedirs(save_path, exist_ok=True)
+    print("save_path",save_path)
     extension = ".png"
+    print("path: " f"{dataset}_{FILES_NAMES[tag_]}{extension}")
+    print(dataset)
+    print(tag_)
     fig_path = os.path.join(save_path, f"{dataset}_{FILES_NAMES[tag_]}{extension}")
 
     print("\nfig_path ", fig_path)
@@ -410,12 +415,12 @@ if __name__ == "__main__":
     m_list = [
         # [],
         ["m_1.5"],
-        ["m_1.6"],
-        ["m_1.7"],
-        ["m_1.8"],
-        ["m_2"],
-        ["m_2.2"],
-        ["m_2.4"],
+        # ["m_1.6"],
+        # ["m_1.7"],
+        # ["m_1.8"],
+        # ["m_2"],
+        # ["m_2.2"],
+        # ["m_2.4"],
         # ["m_1.9"],
         # ["m_2.6"],
         # ["m_2.8"]
