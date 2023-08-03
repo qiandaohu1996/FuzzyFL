@@ -16,6 +16,7 @@ data/*/1.log
 data/*/1.ipynb
 figures
 docs
+shell_experiments
 *.log
 *.ipynb
 1.md

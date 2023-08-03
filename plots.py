@@ -81,8 +81,8 @@ COLORS = {
 }
 
 PROX_METHODS = ["L2SGD", "FedProx", "pFedMe"]
-TWO_DIR_METHODS = PROX_METHODS + ["FuzzyFL", "APFL"]
-
+# TWO_DIR_METHODS = PROX_METHODS + ["FuzzyFL", "APFL","FedProx","FedEM","FedAvg","clustered"]
+ONE_DIR_METHODS=["FedAvg","FedEM"]
 
 def empty_lst(lst):
     if len(lst) == 0:
@@ -101,6 +101,18 @@ def check_mu(folder_name):
             return False
     return True
 
+def check_lr_samp(first_dir):
+    parts = first_dir.split("_")
+    parameters = ["_".join(parts[i : i + 2]) for i in range(0, len(parts), 2)]
+    sample_rate=parameters[-1]
+    if not empty_lst(SAMPLING_RATES):
+        if not (sample_rate in SAMPLING_RATES):
+            # print("sample pass...")
+            return False
+        else:
+            return True
+    else:
+        return True
 
 def get_figure_folder_name(lst):
     folder_name = ""
@@ -125,16 +137,17 @@ def replace_list(lst, _strs):
 def check_fuzzy_folder(folder_name):
     global FUZZY_CONTAIN_WORDS
 
-    folder_name = folder_name.replace("msu_", "")
+    # folder_name = folder_name.replace("msu_", "")
     parts = folder_name.split("_")
     strs = ["loss", "dot", "cos", "euclid", "level", "grad", "graddot"]
-    if "msu" not in folder_name:
-        replace_list(parts, strs)
+    # if "msu" not in folder_name:
+    #     replace_list(parts, strs)
     if empty_lst(FUZZY_CONTAIN_WORDS):
         return check_folder(folder_name)
     else:
-        # print("folder_name ", folder_name)
+        print("folder_name ", folder_name)
         parameters = ["_".join(parts[i : i + 2]) for i in range(0, len(parts), 2)]
+        print("fuzzy parameters", parameters)
         if (all(word in parameters for word in FUZZY_CONTAIN_WORDS) and not any(word in parameters for word in FILTER_WORDS)):
             # print("2parameters", parameters)
             return True
@@ -152,22 +165,13 @@ def check_apfl(folder_name):
             return True
     return False
 
-
 def check_folder(folder_name):
     # print("folder_name ", folder_name)
     parts = folder_name.split("_")
-
     parameters = ["_".join(parts[i : i + 2]) for i in range(0, len(parts), 2)]
-    print(parameters)
-    if empty_lst(SAMPLING_RATES):
-        if not any(samp_word in parameters for samp_word in FILTER_WORDS):
+    print("parameters", parameters)
+    if not any(word in parameters for word in FILTER_WORDS):
             return True
-    else:
-        if any(samp_word in parameters for samp_word in SAMPLING_RATES) and not any(
-            word in parameters for word in FILTER_WORDS
-        ):
-            return True
-
     return False
 
 
@@ -219,7 +223,9 @@ def extract_label(param_dir):
 def handle_method(ax, method_dir, tag_, task_dir):
     method = method_dir.split("/")[-1]
     for param_dir in os.listdir(method_dir):
-
+        if not check_lr_samp(param_dir):
+            print("sample pass...")
+            continue
         if not check_folder(param_dir):
             print("check_folder pass...")
             continue
@@ -239,9 +245,12 @@ def handle_2dir_method(ax, method_dir, tag_, task_dir):
     method = method_dir.split("/")[-1]
     print("method", method)
     for sampling_dir in os.listdir(method_dir):
+        if not check_lr_samp(sampling_dir):
+            print("sample pass...")
+            continue
         param_dirs = os.path.join(method_dir, sampling_dir)
         for param_dir in os.listdir(param_dirs):
-            # print("param_dir ", param_dir)
+            print("param_dir ", param_dir)
             if os.path.isfile(os.path.join(param_dirs, param_dir)):
                 continue
             if method in PROX_METHODS:
@@ -257,8 +266,8 @@ def handle_2dir_method(ax, method_dir, tag_, task_dir):
                     # print("fuzzy pass...")
                     continue
             param_path = os.path.join(param_dirs, param_dir)
-            # print("param_dir ", param_dir)
-            # print("param_path ", param_path)
+            print("param_dir ", param_dir)
+            print("param_path ", param_path)
             steps, tag_values = extract_event_data(param_path, tag_, task_dir)
             label = method + " " + extract_label(param_dir)
             if steps is not None:
@@ -283,10 +292,10 @@ def make_plot(path_, tag_, task_dir, save_path):
         method_dir = os.path.join(path_, method)
         # print("\nmethod_dir ", method_dir)
         # print("TWO_DIR_METHODS", TWO_DIR_METHODS)
-        if method in TWO_DIR_METHODS:
-            handle_2dir_method(ax, method_dir, tag_, task_dir)
-        else:
+        if method in ONE_DIR_METHODS:
             handle_method(ax, method_dir, tag_, task_dir)
+        else:
+            handle_2dir_method(ax, method_dir, tag_, task_dir)
 
     ax.grid(True, linewidth=2)
     ax.set_ylabel(AXE_LABELS[tag_], fontsize=50)
@@ -353,7 +362,7 @@ if __name__ == "__main__":
     datasets = [
         # "cifar10",
         # "cifar10_alpha0.8",
-        "cifar10_pathologic_cl3",
+        # "cifar10_pathologic_cl3",
         # "cifar100",
         # "emnist",
         # "emnist_alpha0.2",
@@ -362,7 +371,7 @@ if __name__ == "__main__":
         # "emnist_pathologic_cl10",
         # "emnist_pathologic_cl20",
         # "emnist_c5",
-        # "femnist"
+        "femnist"
     ]
     # datasets = "synthetic00"
     # VISBLE_METHODS = ["FedAvg", "L2SGD", "FedEM", "FuzzyFL", "APFL", "clusterd", "FedAvg+", "pFedMe"]
@@ -380,7 +389,7 @@ if __name__ == "__main__":
     INVISBLE_METHODS = []
     SMOOTH = True
     # FILTER_WORDS=["samp_0.1", "pre_1", "samp_0.2","samp_1", "sch_cosine", "sch_constant", "mt_0.5" "pre_50"]
-    FILTER_WORDS = ["pre_1", "lr_0.05", "level", "alpha_0.5", "alpha_0.75", "grad"]
+    FILTER_WORDS = [ "lr_0.05", "level", "alpha_0.5", "alpha_0.75", "grad"]
     # FILTER_WORDS = []
     mu_word = ""
     mu_words = [
@@ -393,7 +402,7 @@ if __name__ == "__main__":
     SAMPLING_RATES = ["samp_0.5"]
 
     mt_list = [
-        "",
+        # "",
         # "mt_0.5",
         "mt_0.8"
     ]
@@ -405,10 +414,10 @@ if __name__ == "__main__":
         ["m_1.7"],
         ["m_1.8"],
         ["m_2"],
-        # ["m_1.9"],
         ["m_2.2"],
         ["m_2.4"],
-        ["m_2.6"],
+        # ["m_1.9"],
+        # ["m_2.6"],
         # ["m_2.8"]
     ]
     FUZZY_CONTAIN_WORDS_list = []
@@ -416,7 +425,7 @@ if __name__ == "__main__":
     # print(FUZZY_CONTAIN_WORDS_list)
     trans_list = [
         # "",
-        "trans_0.5",
+        # "trans_0.5",
         "trans_0.75",
         # "trans_0.9"
     ]
