@@ -137,17 +137,14 @@ def replace_list(lst, _strs):
 def check_fuzzy_folder(folder_name):
     global FUZZY_CONTAIN_WORDS
 
-    # folder_name = folder_name.replace("msu_", "")
     parts = folder_name.split("_")
-    strs = ["loss", "dot", "cos", "euclid", "level", "grad", "graddot"]
-    # if "msu" not in folder_name:
-    #     replace_list(parts, strs)
+ 
     if empty_lst(FUZZY_CONTAIN_WORDS):
         return check_folder(folder_name)
     else:
-        print("folder_name ", folder_name)
+        # print("folder_name ", folder_name)
         parameters = ["_".join(parts[i : i + 2]) for i in range(0, len(parts), 2)]
-        print("fuzzy parameters", parameters)
+        # print("fuzzy parameters", parameters)
         if (all(word in parameters for word in FUZZY_CONTAIN_WORDS) and not any(word in parameters for word in FILTER_WORDS)):
             # print("2parameters", parameters)
             return True
@@ -374,9 +371,9 @@ if __name__ == "__main__":
         # "emnist_alpha0.8",
         # "emnist_pathologic_cl5",
         # "emnist_pathologic_cl10",
-        # "emnist_pathologic_cl20",
+        "emnist_pathologic_cl20",
         # "emnist_c5",
-        "femnist"
+        # "femnist"
     ]
     # datasets = "synthetic00"
     # VISBLE_METHODS = ["FedAvg", "L2SGD", "FedEM", "FuzzyFL", "APFL", "clusterd", "FedAvg+", "pFedMe"]

@@ -85,7 +85,7 @@ class FuzzyClient(Client):
         # print("distances  ", [f"{d:.3f}" for d in distances])
         distances = distances - self.trans * distances.min()
         # print(f"distances after -{self.trans}min  ", distances)
-        self.torch_display(f"distances after -{self.trans}min  ", distances)
+        # self.torch_display(f"distances after -{self.trans}min  ", distances)
 
         membership_mat[client_id, :] = self.distances_to_membership(distances, p, eps, clamp_max)
         if self.previous_membership_vec is not None:
@@ -163,7 +163,7 @@ class FuzzyClient(Client):
         mean_losses = all_losses.mean(dim=1)
         # self.torch_display("mean_losses ", mean_losses)
         distances = mean_losses - self.trans * mean_losses.min()
-        self.torch_display(f"mean_losses after -{self.trans}min  ", mean_losses)
+        # self.torch_display(f"mean_losses after -{self.trans}min  ", mean_losses)
 
         membership_mat[client_id, :] = self.distances_to_membership(distances, p, eps, clamp_max)
         # print("mean_losses[j] > eps den ",den)

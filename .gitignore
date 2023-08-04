@@ -1,4 +1,3 @@
-.gitignore
 __pycache__
 .hypothesis
 /*/__pycache__
@@ -21,3 +20,4 @@ shell_experiments
 *.ipynb
 1.md
 1.py
+1.sh
