@@ -68,7 +68,7 @@ set_inner_dir() {
     fi
 }
 
-run_base() {
+run() {
     local dataset="$1"
     shift
     local algo="$1"
@@ -78,30 +78,29 @@ run_base() {
     local optimizer="sgd"
     local extra_args_str=("$@")
     declare -A parameters
-
     # echo "${extra_args_str[@]}"
     echo "${extra_args_str[*]}"
-
     if [[ $dataset == synthetic* ]]; then
         extra_args_str+=("--input_dimension" "150" "--output_dimension" "2")
     fi
-    while (("$#")); do
-        # echo "$1"
-        if [[ $1 == --* ]]; then
-            local key=${1#--}
-            shift
-            if [[ $1 != --* && $1 != "" ]]; then
-                parameters[$key]=$1
-                shift
+    local index=0
+    while [ $index -lt ${#extra_args_str[@]} ]; do
+        # echo "${extra_args_str[$index]}"s
+        if [[ ${extra_args_str[$index]} == --* ]]; then
+            local key=${extra_args_str[$index]#--}
+            index=$((index+1))
+            if [[ ${extra_args_str[$index]} != --* && ${extra_args_str[$index]} != "" ]]; then
+                parameters[$key]=${extra_args_str[$index]}
+                index=$((index+1))
             else
                 parameters[$key]=true
             fi
         else
-            shift
+            index=$((index+1))
         fi
     done
-    parameters["sampling_rate"]=$sampling_rate
-
+    # parameters["sampling_rate"]=$sampling_rate
+    show_dict parameters
     if [[ -v parameters["fuzzy_m_scheduler"] ]]; then
         case ${parameters["fuzzy_m_scheduler"]} in
         "multi_step")
@@ -112,6 +111,7 @@ run_base() {
             ;;
         esac
     fi
+    sampling_rate=${parameters["sampling_rate"]}
     local samp_dir=""
     local inner_dir=""
     case $algo in
@@ -171,9 +171,9 @@ run_base() {
     # if [[ ${parameters[minibatch]} ]]; then
     #     log_type="batch"
     # fi
-    # echo "${sampling_rate}"
     echo "$dataset"
     echo "${algo}"
+    echo "${sampling_rate}"
 
     local log_dir="logs/$dataset/${algo}/lr_${lr}_samp_${sampling_rate}/${inner_dir}"
     # local save_path="chkpts/$dataset/${algo}${samp_dir}/${algo}_lr_${lr}${inner_dir}"
@@ -187,38 +187,31 @@ run_base() {
 
     echo "$out_file"
 
-    python run_experiment.py "$dataset" "$algo" --n_rounds $n_rounds --n_learners $n_learners --sampling_rate "$sampling_rate" --lr $lr \
+    python run_experiment.py "$dataset" "$algo" --n_rounds $n_rounds --n_learners $n_learners --lr $lr \
         --lr_scheduler multi_step --optimizer $optimizer --bz $bz --local_steps $local_steps --log_freq $log_freq --seed 1234 --verbose 1 \
         "${extra_args_str[@]}"  --logs_root "$log_dir" >"$log_dir/$out_file"
 }
 
-run() {
-    for dataset in "${DATA[@]}"; do
-        for sampling_rate in "${sampling_rates[@]}"; do
-            run_base "$dataset" "$@" --minibatch
-        done
-    done
-}
 
 
-get_apfl_cmd(){
-    for dataset in "${DATA[@]}"; do
-        for sampling_rate in "${sampling_rates[@]}"; do
-            for alpha in "${alphas[@]}"; do
-            commands+=("run_base $dataset  APFL --alpha $alpha --adaptive --minibatch")
-            done
-        done
-    done
-}
+# get_apfl_cmd(){
+#     for dataset in "${DATA[@]}"; do
+#         for sampling_rate in "${sampling_rates[@]}"; do
+#             for alpha in "${alphas[@]}"; do
+#             commands+=("run $dataset --sampling_rate ${sampling_rate}  APFL --alpha $alpha --adaptive --minibatch")
+#             done
+#         done
+#     done
+# }
 
 get_ordinary_cmd(){
     for dataset in "${DATA[@]}"; do
         for algo in "${algos[@]}"; do
         for sampling_rate in "${sampling_rates[@]}"; do
             if [ "$algo" == "APFL" ]; then
-            commands+=("run_base $dataset  APFL --alpha $alpha --adaptive --minibatch")
+            commands+=("run $dataset APFL --sampling_rate ${sampling_rate} --alpha $alpha --adaptive --minibatch")
             else
-                commands+=("run_base $dataset $algo --minibatch")
+            commands+=("run $dataset $algo --sampling_rate ${sampling_rate} --minibatch")
             fi
         done
         done
@@ -231,10 +224,10 @@ get_prox_cmd(){
         for mu in "${mus[@]}"; do
             for sampling_rate in "${sampling_rates[@]}"; do
             if [ "$algo" == "L2SGD" ]; then
-                commands+=("run_base $dataset $algo  --comm_prob ${comm_prob} --mu $mu --minibatch")
+                commands+=("run $dataset $algo  --sampling_rate ${sampling_rate} --comm_prob ${comm_prob} --mu $mu --minibatch")
             else
                 for comm_prob in "${comm_probs[@]}"; do
-                    commands+=("run_base $dataset $algo --mu $mu --minibatch")
+                    commands+=("run $dataset $algo --sampling_rate ${sampling_rate}  --mu $mu --minibatch")
                 done
             fi
         done
@@ -244,7 +237,7 @@ get_prox_cmd(){
 }
 
 get_fuzzy_cmd(){
-    algo="FuzzyFL"
+    algo="FuzzyFL" 
     for pre_rounds in "${pre_rounds_list[@]}"; do
         for fuzzy_m_scheduler in "${fuzzy_m_schedulers[@]}"; do
         for trans in "${trans_list[@]}"; do
@@ -261,7 +254,7 @@ get_fuzzy_cmd(){
                 # echo min_m="$min_m"
                 for dataset in "${DATA[@]}"; do
                 for sampling_rate in "${sampling_rates[@]}"; do
-                    commands+=("run_base \"$dataset\" \"$algo\" --pre_rounds \"${pre_rounds}\" --fuzzy_m \"$m\"  --trans \"$trans\" --min_fuzzy_m \"${min_m}\" --fuzzy_m_scheduler \"${fuzzy_m_scheduler}\" --fuzzy_m_momentum \"${fuzzy_m_momentum}\" --measurement \"$measurement\" --minibatch")
+                    commands+=("run $dataset $algo --sampling_rate ${sampling_rate} --pre_rounds ${pre_rounds} --fuzzy_m $m  --trans $trans --min_fuzzy_m ${min_m} --fuzzy_m_scheduler ${fuzzy_m_scheduler} --fuzzy_m_momentum ${fuzzy_m_momentum} --measurement $measurement --minibatch")
                 done
                 done
             done
@@ -289,7 +282,7 @@ run_fuzzy(){
                 fi
                 for dataset in "${DATA[@]}"; do
                 for sampling_rate in "${sampling_rates[@]}"; do
-                    run_base "$dataset" "$algo" --pre_rounds "${pre_rounds}" --fuzzy_m "$m" --min_fuzzy_m "${min_m}" --trans "$trans" --fuzzy_m_scheduler "${fuzzy_m_scheduler}" --fuzzy_m_momentum "${fuzzy_m_momentum}" --measurement "$measurement" --minibatch
+                    run "$dataset" "$algo" --sampling_rate "${sampling_rate}" --pre_rounds "${pre_rounds}" --fuzzy_m "$m" --min_fuzzy_m "${min_m}" --trans "$trans" --fuzzy_m_scheduler "${fuzzy_m_scheduler}" --fuzzy_m_momentum "${fuzzy_m_momentum}" --measurement "$measurement" --minibatch
                 done
                 done
             done
@@ -412,13 +405,13 @@ check_dir() {
 run_gd() {
     for dataset in "${DATA[@]}"; do
         for sampling_rate in "${sampling_rates[@]}"; do
-            run_base "$dataset" "$@"
+            run "$dataset" "$@"
         done
     done
 }
 
 show_dict() {
-    local dict="$1"
+    local -n dict="$1"
     for key in "${!dict[@]}"; do
         value="${dict[$key]}"
         echo "$key: $value"
