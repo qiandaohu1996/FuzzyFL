@@ -9,40 +9,46 @@ source shell_experiments/run.sh
 
 # DATA=("cifar10_alpha0.8" )
 
+DATA=("femnist" )
 n_rounds=200
 
 current_processes=0
-max_concurrent_processes=3
+max_concurrent_processes=2
 
 sampling_rates=( "0.5")
 
 commands=()
 
-DATA=("femnist")
-
-# lr=0.05
-# algos=("FedAvg")
+# algos=("FedEM")
 # get_ordinary_cmd
 
 pre_rounds_list=("1")
 
-fuzzy_m_schedulers=("constant")
+fuzzy_m_schedulers=("cosine_annealing")
 
 fuzzy_m_momentums=("0.8")
+
 fuzzy_m_list=("1.5" "1.6" "1.7" "1.8" "2" "2.2" "2.4")
 trans_list=("0.75")
-measurements=("loss" "euclid")
+measurements=("loss" )
+get_fuzzy_cmd
+
+fuzzy_m_momentums=("0.8")
+
+fuzzy_m_list=("1.5")
+trans_list=("0.75")
+measurements=("euclid")
 get_fuzzy_cmd
 
 echo commands length: ${#commands[@]}
-
 for program in "${commands[@]}"; do
     echo "$program"
 done
+echo 
 
 multi_run(){
     pids=()
-    for program in "${commands[@]:3}"; do
+    for program in "${commands[@]}"; do
         while [ $current_processes -ge $max_concurrent_processes ]; do
             wait -n  # 等待任何子进程结束
             ((current_processes--))  # 子进程结束，计数减1
@@ -55,6 +61,7 @@ multi_run(){
         echo process "$!" start
         ((current_processes++))
         echo current_processes  = "${current_processes}"
+        sleep 10
     done
 
     # 等待剩余的子进程结束

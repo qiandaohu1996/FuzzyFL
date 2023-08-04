@@ -79,7 +79,7 @@ run() {
     local extra_args_str=("$@")
     declare -A parameters
     # echo "${extra_args_str[@]}"
-    echo "${extra_args_str[*]}"
+    # echo "${extra_args_str[*]}"
     if [[ $dataset == synthetic* ]]; then
         extra_args_str+=("--input_dimension" "150" "--output_dimension" "2")
     fi
@@ -100,7 +100,7 @@ run() {
         fi
     done
     # parameters["sampling_rate"]=$sampling_rate
-    show_dict parameters
+    # show_dict parameters
     if [[ -v parameters["fuzzy_m_scheduler"] ]]; then
         case ${parameters["fuzzy_m_scheduler"]} in
         "multi_step")
@@ -173,7 +173,6 @@ run() {
     # fi
     echo "$dataset"
     echo "${algo}"
-    echo "${sampling_rate}"
 
     local log_dir="logs/$dataset/${algo}/lr_${lr}_samp_${sampling_rate}/${inner_dir}"
     # local save_path="chkpts/$dataset/${algo}${samp_dir}/${algo}_lr_${lr}${inner_dir}"
@@ -309,32 +308,35 @@ run_apfl() {
     done
 }
 
-run_agfl() {
-    algo="AGFL"
-    for alpha in "${alphas[@]}"; do
-        run  $algo --alpha "$alpha" --adaptive
+run_base() {
+    algo=$1
+    shift
+    for dataset in "${DATA[@]}"; do
+    for sampling_rate in "${sampling_rates[@]}"; do
+        run "$dataset" "$algo"  --sampling_rate "${sampling_rate}" --minibatch "${@}" 
+    done 
     done
 }
 
 run_local() {
     algo="local"
-    run $algo
+    run_base $algo
 }
 
 run_em() {
     algo="FedEM"
-    run  $algo
+    run_base  $algo 
 }
 
 run_clustered() {
     algo="clustered"
-    run  $algo
+    run_base  $algo
 }
 
 run_avgem() {
     algos=("FedAvg" "FedEM")
     for algo in "${algos[@]}"; do
-        run  $algo
+        run_base  "$algo"
     done
 }
 
@@ -342,7 +344,7 @@ run_l2gd() {
     algo="L2SGD"
     for comm_prob in "${comm_probs[@]}"; do
         for mu in "${mus[@]}"; do
-            run  $algo --comm_prob "$comm_prob" --mu "$mu"
+            run_base  "$algo" --comm_prob "$comm_prob" --mu "$mu"
         done
     done
 }
@@ -350,14 +352,14 @@ run_l2gd() {
 run_pfedme() {
     algo="pFedMe"
     for mu in "${mus[@]}"; do
-        run   $algo --mu "$mu"
+        run_base   "$algo" --mu "$mu"
     done
 }
 
 run_prox() {
     algo="FedProx"
     for mu in "${mus[@]}"; do
-        run  $algo --mu "$mu"
+        run_base  "$algo" --mu "$mu"
     done
 }
 
