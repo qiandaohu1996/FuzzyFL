@@ -13,7 +13,7 @@ DATA=("femnist" )
 n_rounds=200
 
 current_processes=0
-max_concurrent_processes=2
+max_concurrent_processes=1
 
 sampling_rates=( "0.5")
 
@@ -33,12 +33,12 @@ trans_list=("0.75")
 measurements=("loss" )
 get_fuzzy_cmd
 
-fuzzy_m_momentums=("0.8")
+# fuzzy_m_momentums=("0.8")
 
-fuzzy_m_list=("1.5")
-trans_list=("0.75")
-measurements=("euclid")
-get_fuzzy_cmd
+# fuzzy_m_list=("1.5")
+# trans_list=("0.75")
+# measurements=("euclid")
+# get_fuzzy_cmd
 
 echo commands length: ${#commands[@]}
 for program in "${commands[@]}"; do

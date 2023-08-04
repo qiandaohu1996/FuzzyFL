@@ -4,6 +4,7 @@ __pycache__
 .vscode
 chkpts
 logs
+shell_experiments
 data/*/all_data
 data/*/all_data0
 data/*/all_data00
