@@ -1,4 +1,5 @@
 __pycache__
+*.deb
 .hypothesis
 /*/__pycache__
 .vscode
