@@ -390,11 +390,11 @@ class FuzzyClient(Client):
             diff = client_params - cluster_params[i]
             distances[i] = torch.norm(diff)
 
-        print("distances  ", [f"{d:.3f}" for d in distances])
+        # print("distances  ", [f"{d:.3f}" for d in distances])
 
         distances = (distances - self.trans * distances.min()) + eps
         # distances = (distances - self.trans * distances.min())/(distances.max()-  distances.min())
-        print(f"distances after -{self.trans}min ", [f"{d:.3f}" for d in distances])
+        # print(f"distances after -{self.trans}min ", [f"{d:.3f}" for d in distances])
 
         dens = []
         for cluster_id in range(n_clusters):
@@ -475,12 +475,12 @@ class FuzzyClient(Client):
 
         cos_sim = F.cosine_similarity(client_params, cluster_params)
         distances = 1.0 - cos_sim
-        print("distances ", distances)
+        # print("distances ", distances)
 
         distances = torch.clamp(distances, min=eps, max=clamp_max)
 
         distances = (distances - self.trans * distances.min()) + eps
-        self.torch_display(f"distances after -{self.trans}min  ", distances)
+        # self.torch_display(f"distances after -{self.trans}min  ", distances)
 
         for cluster_id in range(n_clusters):
             den = torch.zeros(1, device=device)
@@ -531,9 +531,9 @@ class FuzzyClient(Client):
             diff = client_params - cluster_params[i]
             distances[i] = torch.norm(diff)
 
-        print("distances", distances)
+        # print("distances", distances)
         distances = distances - 0.5 * distances.min()
-        print("distances after min", distances)
+        # print("distances after min", distances)
 
         # membership_mat[client_id]=F.softmax(distances,dim=0).T
 
