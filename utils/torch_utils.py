@@ -56,25 +56,16 @@ def average_learners(
 
                 if average_params:
                     if learner_id == 0:
-                        target_state_dict[key].data = (
-                            weights[learner_id] * state_dict[key].data
-                        )
-
+                        target_state_dict[key].data =  weights[learner_id] * state_dict[key].data
                     else:
-                        target_state_dict[key].data.add_(
-                            weights[learner_id] * state_dict[key].data
-                        )
+                        target_state_dict[key].data.add_(weights[learner_id] * state_dict[key].data)
 
                 if average_gradients:
                     if state_dict[key].grad is not None:
                         if learner_id == 0:
-                            target_state_dict[key].grad.data = (
-                                weights[learner_id] * state_dict[key].grad
-                            )
+                            target_state_dict[key].grad.data = weights[learner_id] * state_dict[key].grad
                         else:
-                            target_state_dict[key].grad.data += (
-                                weights[learner_id] * state_dict[key].grad
-                            )
+                            target_state_dict[key].grad.data.add_(weights[learner_id] * state_dict[key].grad)
                     elif state_dict[key].requires_grad:
                         warnings.warn(
                             "trying to average_gradients before back propagation,"
@@ -333,6 +324,43 @@ def select_top_k_cluster(membership_mat, k):
     return new_membership_mat, topk_indices
 
 
+def average_models(models, target_model, weights=None):
+    """
+    Compute the average of a list of models and store it into target_model.
+
+    :param models: List of models to be averaged.
+    :type models: List[nn.Module]
+    :param target_model: Model where the averaged parameters will be stored.
+    :type target_model: nn.Module
+    :param weights: tensor of the same size as models, having values between 0 and 1, and summing to 1.
+                    If None, uniform weights are used.
+    :type weights: torch.Tensor
+
+    """
+    
+    if weights is None:
+        n_models = len(models)
+        weights = (1 / n_models) * torch.ones(n_models, device=next(target_model.parameters()).device)
+    else:
+        weights = weights.to(next(target_model.parameters()).device)
+
+    target_state_dict = target_model.state_dict(keep_vars=True)
+
+    for key in target_state_dict:
+        if target_state_dict[key].data.dtype == torch.float32:
+            for model_id, model in enumerate(models):
+                state_dict = model.state_dict(keep_vars=True)
+
+                if model_id == 0:
+                    target_state_dict[key].data = weights[model_id] * state_dict[key].data
+                else:
+                    target_state_dict[key].data.add_(weights[model_id] * state_dict[key].data)
+        else:
+            # handle non-float parameters (e.g., batch normalization parameters)
+            target_state_dict[key].data.fill_(0)
+            for model_id, model in enumerate(models):
+                state_dict = model.state_dict()
+                target_state_dict[key].data.add_(state_dict[key].data)
  
 
 @no_grad()

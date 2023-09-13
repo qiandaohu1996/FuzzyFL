@@ -2,6 +2,8 @@ import torch
 import time
 from fuzzy_agg import FuzzyGroupAggregator
 from fuzzy_client import FuzzyClient
+from fedsoft_agg import FedSoftAggregator
+from fedsoft_client import FedSoftClient
 from utils.fuzzy_utils import get_fuzzy_m_scheduler
 
 from utils.models import *
@@ -486,17 +488,17 @@ def get_client(
             tune_locally=tune_locally,
             q=q,
         )
-    # elif client_type == "AGFL":
-    #     return AGFLClient(
-    #         learners_ensemble=learners_ensemble,
-    #         train_iterator=train_iterator,
-    #         val_iterator=val_iterator,
-    #         test_iterator=test_iterator,
-    #         idx=idx,
-    #         logger=logger,
-    #         local_steps=local_steps,
-    #         tune_locally=tune_locally,
-    #     )
+    elif client_type == "FedSoft":
+        return FedSoftClient(
+            learners_ensemble=learners_ensemble,
+            train_iterator=train_iterator,
+            val_iterator=val_iterator,
+            test_iterator=test_iterator,
+            idx=idx,
+            logger=logger,
+            local_steps=local_steps,
+            tune_locally=tune_locally,
+        )
     elif client_type == "FuzzyFL":
         fuzzy_m_scheduler = get_fuzzy_m_scheduler(
             initial_fuzzy_m=initial_fuzzy_m,
@@ -546,6 +548,7 @@ def get_aggregator(
     fuzzy_m_momentum,
     n_clusters,
     top,
+    tau,
     global_train_logger,
     global_test_logger,
     local_test_logger,
@@ -746,6 +749,24 @@ def get_aggregator(
             global_test_logger=global_test_logger,
             local_test_logger=local_test_logger,
             comm_prob=comm_prob,
+            sampling_rate=sampling_rate,
+            single_batch_flag=single_batch_flag,
+            verbose=verbose,
+            seed=seed,
+        )
+    elif aggregator_type == "FedSoft":
+        return FedSoftAggregator(
+            clients=clients,
+            global_learners_ensemble=global_learners_ensemble,
+            log_freq=log_freq,
+            test_clients=test_clients,
+            pre_rounds=pre_rounds,
+            n_clusters=n_clusters,
+            global_train_logger=global_train_logger,
+            global_test_logger=global_test_logger,
+            local_test_logger=local_test_logger,
+            mu=mu,
+            tau=tau,
             sampling_rate=sampling_rate,
             single_batch_flag=single_batch_flag,
             verbose=verbose,

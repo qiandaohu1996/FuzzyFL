@@ -150,7 +150,7 @@ class ProxSGD(Optimizer):
                     continue
                 d_p = p.grad.data
                 if weight_decay != 0:
-                    d_p = d_p.add(p.data, alpha=weight_decay)
+                    d_p.add_(p.data, alpha=weight_decay)
 
                 param_state = self.state[p]
                 if momentum != 0:
@@ -160,7 +160,7 @@ class ProxSGD(Optimizer):
                         buf = param_state['momentum_buffer']
                         buf.mul_(momentum).add_(d_p, alpha=1 - dampening)
                     if nesterov:
-                        d_p = d_p.add(buf, alpha=momentum)
+                        d_p.add_(buf, alpha=momentum)
                     else:
                         d_p = buf
 
@@ -192,6 +192,82 @@ class ProxSGD(Optimizer):
             for param, initial_param in zip(param_group['params'], initial_param_group['params']):
                 param_state = self.state[param]
                 param_state['initial_params'] = torch.clone(initial_param.data)
+
+
+class SoftProxSGD(Optimizer):
+    def __init__(self, params, lr=required, mu=0., momentum=0., dampening=0., weight_decay=0., nesterov=False):
+        if lr is not required and lr < 0.0:
+            raise ValueError("Invalid learning rate: {}".format(lr))
+        if momentum < 0.0:
+            raise ValueError("Invalid momentum value: {}".format(momentum))
+        if weight_decay < 0.0:
+            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
+
+        defaults = dict(lr=lr, momentum=momentum, dampening=dampening, 
+                        weight_decay=weight_decay, nesterov=nesterov)
+        super(SoftProxSGD, self).__init__(params, defaults)
+
+        self.mu = mu
+
+    def step(self, closure=None):
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+
+        for group in self.param_groups:
+            weight_decay = group['weight_decay']
+            momentum = group['momentum']
+            dampening = group['dampening']
+            nesterov = group['nesterov']
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                d_p = p.grad.data
+                
+                # Weight decay
+                if weight_decay != 0:
+                    d_p = d_p.add(p.data, alpha=weight_decay)
+
+                # Momentum
+                param_state = self.state[p]
+                if momentum != 0:
+                    if 'momentum_buffer' not in param_state:
+                        buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
+                    else:
+                        buf = param_state['momentum_buffer']
+                        buf.mul_(momentum).add_(d_p, alpha=1 - dampening)
+                    if nesterov:
+                        d_p = d_p.add(buf, alpha=momentum)
+                    else:
+                        d_p = buf
+
+                # Proximal term
+                if 'cluster_models' in param_state and 'cluster_weights' in param_state:
+                    for cluster_model, cluster_weight in zip(param_state['cluster_models'], param_state['cluster_weights']):
+                        d_p.add_(p.data - cluster_model, alpha=self.mu * cluster_weight / 2)
+
+        p.data.add_(d_p, alpha=-group['lr'])
+
+        return loss
+
+    def set_proximal_params(self, cluster_models, cluster_weights):
+        if len(cluster_models) == 0:
+            raise ValueError("接收到一个空的簇模型列表")
+        
+        if len(cluster_models) != len(cluster_weights):
+            raise ValueError("簇模型和簇权重的长度不匹配")
+
+        # 将每个簇模型转换为参数列表
+        cluster_model_params_list = [list(cluster_model.parameters()) for cluster_model in cluster_models]
+
+        for param_group in self.param_groups:
+            for param_idx, param in enumerate(param_group['params']):
+                param_state = self.state[param]
+                # 对于每个参数，创建一个与所有簇模型参数关联的列表
+                param_state['cluster_models'] = [torch.clone(cluster_model_params[param_idx].data) for cluster_model_params in cluster_model_params_list]
+                param_state['cluster_weights'] = cluster_weights
 
 
 class PerGodGradientDescent(Optimizer):
@@ -293,6 +369,15 @@ def get_optimizer(optimizer_name, model, lr_initial, freq=10, mu=0.):
             momentum=0.,
             weight_decay=5e-4
         )
+    elif optimizer_name == "soft_proxsgd":
+        return SoftProxSGD(
+            [param for param in model.parameters() if param.requires_grad],
+            mu=mu,
+            lr=lr_initial,
+            momentum=0.,
+            weight_decay=5e-4
+        )
+        FedSoftOptimizer
     elif optimizer_name == "svrg":
         return SVRG([param for param in model.parameters() if param.requires_grad], lr=lr_initial, freq=freq)
     elif optimizer_name == "pggd":

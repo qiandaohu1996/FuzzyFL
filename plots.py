@@ -120,7 +120,7 @@ def check_lr_samp(first_dir):
         return True
     # if "seed" not in params_dict:
     #     return False 
-    if params_dict["samp"] in SAMPLING_RATES and params_dict["lr"] in LEARNING_RATES:
+    if params_dict["lr"]==learning_rate and params_dict["samp"] == SAMPLING_RATES[0]:
         return True
     return False
 
@@ -148,7 +148,6 @@ def check_fuzzy_folder(folder_name):
     global FUZZY_CONTAIN_WORDS
     # print(FUZZY_CONTAIN_WORDS)
     parts = folder_name.split("_")
- 
  
     if empty_lst(FUZZY_CONTAIN_WORDS):
         return check_folder(folder_name)
@@ -225,11 +224,13 @@ def extract_label(param_dir):
     # print("extract_label param_dir: ",param_dir)
     # param_dir = param_dir.replace("clustered", "clustered FL")
     # param_dir = param_dir.replace("lr_0.1_", "")
-    # param_dir = param_dir.replace("_trans_0.75", "")
+    param_dir = param_dir.replace("_trans_0.75", "")
     # param_dir = param_dir.replace("_pre_25", "")
     param_dir = param_dir.replace("pre_1", "")
     param_dir = param_dir.replace("samp_0.5", "")
-    # param_dir = param_dir.replace("_msu", "")
+    param_dir = param_dir.replace("sch_constant", "")
+    param_dir = param_dir.replace("mt_0.8", "")
+    param_dir = param_dir.replace("msu_euclid", "")
     # param_dir = param_dir.replace("mu_", "mu")
     minilabel = param_dir.split("_")
     # print(minilabel)
@@ -241,7 +242,7 @@ def extract_label(param_dir):
 
 def handle_method(ax, method_dir, tag_, task_dir):
     method = method_dir.split(os.path.sep)[-1]
-    print("method ", method)
+    # print("method ", method)
     for param_dir in os.listdir(method_dir):
         if not check_lr_samp(param_dir):
             # print("sampling rate or learning rate pass...")
@@ -292,7 +293,7 @@ def handle_2dir_method(ax, method_dir, tag_, task_dir):
             # print("param_dir ", param_dir)
             # print("param_path ", param_path)
             steps, tag_values = extract_event_data(param_path, tag_, task_dir)
-            label = method + " " + extract_label(param_dir)
+            label = method +' '+ extract_label(sampling_dir)+" " + extract_label(param_dir)
             # print("label ", label)
             if steps is not None:
                 ax_plot(ax, steps, tag_values, label)
@@ -368,19 +369,21 @@ def plot(datasets):
     current_dir = os.getcwd()
     for dataset in datasets:
         print(dataset)
+        print("learning_rate ",learning_rate)
         # relative_path = os.path.join("logs", dataset)
         relative_path = os.path.join("logs", dataset)
 
         path = os.path.join(current_dir, relative_path)
         inder_dir = ""
-        inder_dir = "lr"+LEARNING_RATES[0]+'_'+"samp"+SAMPLING_RATES[0]
+        inder_dir = "lr"+learning_rate+'_'+"samp"+SAMPLING_RATES[0]
         # inder_dir += "/Fuzzy"
         inder_dir2 = "/" + get_figure_folder_name(FUZZY_CONTAIN_WORDS)
         global mu_word
         if mu_word != "":
             # mu_word = mu_word.replace("_", "")
             inder_dir += "/" + mu_word.replace("_", "")
-        # print(inder_dir2)
+        print("inder_dir ",inder_dir)
+        print("inder_dir2 ",inder_dir2)
          
         # inder_dir2 += ("/" + task_dir)
         pre_dir=""
@@ -434,8 +437,9 @@ if __name__ == "__main__":
         "FedAvg",
         # "L2SGD",
         # "FedProx",
-        "FedEM",
+        # "FedEM",
         "FuzzyFL",
+        # "FedSoft",
         # "APFL",
         # "clusterd",
         # "FedAvg+",
@@ -447,7 +451,8 @@ if __name__ == "__main__":
     FILTER_WORDS = [
         "pre_50",  
         # "sch_constant",
-        # "sch_cosine",  
+        "sch_cosine",  
+        "seed_2345",
         # "msu_euclid",
         # "msu_loss",
         "level", "alpha_0.5", "alpha_0.75", "grad"]
@@ -461,7 +466,7 @@ if __name__ == "__main__":
         # "mu_0.5"
     ]
     SAMPLING_RATES = ["0.5"]
-    LEARNING_RATES = ["0.02"]
+    LEARNING_RATES = ["0.02", "0.05", "0.1"]
     mt_list = [
         # "",
         # "mt_0.5",
@@ -470,6 +475,8 @@ if __name__ == "__main__":
     ]
     ORIGIN_FUZZY_CONTAIN_WORDS = [
         # "pre_50",
+        "clusters_10",
+        "top_5",
         # "constant"
         ]
     m_list = [
@@ -494,7 +501,7 @@ if __name__ == "__main__":
         # "",
         # "trans_0.5",
         "trans_0.75",
-        "trans_0.9"
+        # "trans_0.9"
         # "trans_0"
     ]
     APFL_CONTAIN_WORDS = ["adaptive"]
@@ -518,8 +525,9 @@ if __name__ == "__main__":
         # print("FUZZY_CONTAIN_WORDS ", FUZZY_CONTAIN_WORDS)
         FUZZY_CONTAIN_WORDS = ORIGIN_FUZZY_CONTAIN_WORDS+FUZZY_CONTAIN_WORDS
         print("FUZZY_CONTAIN_WORDS ", FUZZY_CONTAIN_WORDS)
-        for mu_word in mu_words:
-            plot(datasets)
+        for learning_rate in LEARNING_RATES:
+            for mu_word in mu_words:
+                plot(datasets)
     # for i in range(5):
     #     task_dir = f"task_{i}"
     #     print(task_dir)

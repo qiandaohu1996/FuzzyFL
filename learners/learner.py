@@ -83,22 +83,28 @@ class Learner:
         learning_rate = self.optimizer.param_groups[0]["lr"]
         return learning_rate
 
+    def compute_loss(self, batch):
+        self.model.eval()
+
+        x, y, _ = batch
+        x = x.to(self.device).type(torch.float32)
+        y = y.to(self.device)
+        if self.is_binary_classification:
+            y = y.type(torch.float32).unsqueeze(1)
+        
+        y_pred = self.model(x)
+        loss_vec = self.criterion(y_pred, y)
+
+        return loss_vec
+    
     def compute_gradients_and_loss(self, batch, weights=None):
         """
         compute the gradients and loss over one batch.
-<<<<<<< HEAD
-
-=======
->>>>>>> 4088e3c (.)
         :param batch: tuple of (x, y, indices)
         :param weights: tensor with the learners_weights of each sample or None
         :type weights: torch.tensor or None
         :return:
             loss gradient
-<<<<<<< HEAD
-
-=======
->>>>>>> 4088e3c (.)
         """
         self.model.train()
 
@@ -118,6 +124,7 @@ class Learner:
             loss = loss_vec.mean()
         loss.backward()
         return loss.detach()
+    
 
     def fit_batch(self, batch, weights=None):
         self.model.train()
@@ -221,44 +228,44 @@ class Learner:
         client_updates = params - old_params
         return client_updates.cpu().numpy()
 
-    def saga_fit_epoch(self, iterator, weights=None):
-        self.model.train()
-        client_updates = torch.zeros(self.model_dim)
+    # def saga_fit_epoch(self, iterator, weights=None):
+    #     self.model.train()
+    #     client_updates = torch.zeros(self.model_dim)
 
-        n_samples = 0
-        old_params = self.get_param_tensor()
+    #     n_samples = 0
+    #     old_params = self.get_param_tensor()
 
-        for x, y, indices in iterator:
-            x = x.to(self.device).type(torch.float32)
-            y = y.to(self.device)
+    #     for x, y, indices in iterator:
+    #         x = x.to(self.device).type(torch.float32)
+    #         y = y.to(self.device)
 
-            n_samples += y.size(0)
+    #         n_samples += y.size(0)
 
-            if self.is_binary_classification:
-                y = y.type(torch.float32).unsqueeze(1)
+    #         if self.is_binary_classification:
+    #             y = y.type(torch.float32).unsqueeze(1)
 
-            self.optimizer.zero_grad()
+    #         self.optimizer.zero_grad()
 
-            y_pred = self.model(x)
+    #         y_pred = self.model(x)
 
-            loss_vec = self.criterion(y_pred, y)
-            if weights is not None:
-                weights = weights.to(self.device)
-                loss = (loss_vec * weights[indices]).sum() / loss_vec.size(0)
-                # loss = (loss_vec.T @ weights[indices]) / loss_vec.size(0)
+    #         loss_vec = self.criterion(y_pred, y)
+    #         if weights is not None:
+    #             weights = weights.to(self.device)
+    #             loss = (loss_vec * weights[indices]).sum() / loss_vec.size(0)
+    #             # loss = (loss_vec.T @ weights[indices]) / loss_vec.size(0)
 
-            else:
-                loss = loss_vec.mean()
-            loss.backward()
-            # client_grad=self.model.grad
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 100.0)
+    #         else:
+    #             loss = loss_vec.mean()
+    #         loss.backward()
+    #         # client_grad=self.model.grad
+    #         torch.nn.utils.clip_grad_norm_(self.model.parameters(), 100.0)
 
-            self.optimizer.step()
-            params = self.get_param_tensor()
+    #         self.optimizer.step()
+    #         params = self.get_param_tensor()
 
-            client_updates = params - old_params
+    #         client_updates = params - old_params
 
-        return client_updates.cpu().numpy()
+    #     return client_updates.cpu().numpy()
 
     def gather_losses(self, iterator):
         """

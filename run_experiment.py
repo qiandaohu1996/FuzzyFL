@@ -95,6 +95,7 @@ def run_experiment(args_):
                 comm_prob=args_.comm_prob,
                 sampling_rate=args_.sampling_rate,
                 n_clusters=args_.n_clusters,
+                tau=args_.tau,
                 top=args_.top,
                 pre_rounds=args_.pre_rounds,
                 log_freq=args_.log_freq,

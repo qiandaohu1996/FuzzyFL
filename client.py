@@ -283,29 +283,6 @@ class Client(object):
             learners_weights_path)
 
 
-class AGFLClient(Client):
-    def __init__(
-        self,
-        learners_ensemble,
-        train_iterator,
-        val_iterator,
-        test_iterator,
-        logger,
-        local_steps,
-        tune_locally=False,
-    ):
-        super(AGFLClient, self).__init__(
-            learners_ensemble=learners_ensemble,
-            train_iterator=train_iterator,
-            val_iterator=val_iterator,
-            test_iterator=test_iterator,
-            logger=logger,
-            local_steps=local_steps,
-            tune_locally=tune_locally,
-        )
-        self.counter = 0
-
-
 class FedRepClient(Client):
     """
     Client used to implement

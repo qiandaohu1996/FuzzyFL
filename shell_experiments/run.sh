@@ -7,21 +7,20 @@ declare -g algos=()
 
 # algorithm parameters
 declare -g algo=""
-declare -g lr=0.1
 declare -g bz=256
 declare -g local_steps=1
+declare -g max_concurrent_processes=1
 
 declare -g n_rounds=200
-declare -g log_freq=3
+declare -g log_freq=1
 
-declare -g n_clusters=3
-declare -g top=3
+# for all
+declare -g seed=2222
 
 declare -g n_learners=1
 
 declare -g sampling_rates=("0.5")
 declare -g learner_rates=()
-
 # for fuzzyFL
 declare -g pre_rounds_list=("50")
 declare -g fuzzy_m_schedulers=("constant")
@@ -30,10 +29,15 @@ declare -g min_m_list=("1.5")
 declare -g min_m="1.5"
 declare -g trans_list=("0.75")
 declare -g fuzzy_m_momentums=("0.8")
-declare -g measurements=("loss")
+declare -g measurements=("euclid")
+declare -g n_clusters=3
+declare -g top=3
+# for fedsoft
+declare -g tau=4
 
-# for l2sgd fedprox and pfedMe
+# for l2sgd fedprox and pfedMe fedsoft
 declare -g mus=("0.1" "0.5")
+
 # for l2sgd
 declare -g comm_probs=("0.2" "0.5")
 
@@ -82,7 +86,6 @@ run() {
     local algo="$1"
     shift
     local log_type="gd"
-    local n_learners=1
     local optimizer="sgd"
     local extra_args_str=("$@")
     declare -A parameters
@@ -175,6 +178,11 @@ run() {
         set_inner_dir "mu"
         optimizer="prox_sgd"
         ;;
+    "FedSoft")
+        set_inner_dir "mu"
+        set_inner_dir "n_clusters"
+        optimizer="soft_proxsgd"
+        ;;
     "L2SGD")
         set_inner_dir "comm_prob"
         set_inner_dir "mu"
@@ -192,8 +200,7 @@ run() {
     echo "$dataset"
     echo "$algo"
     echo "${inner_dir}"
-    seed=1234
-    first_dir="lr_${lr}_samp_${sampling_rate}"
+    first_dir="lr_${lr}_samp_${sampling_rate}_seed_${seed}"
     # first_dir="lr_${lr}_samp_${sampling_rate}_seed_$seed"
     local log_dir="logs/$dataset/${algo}/${first_dir}/${inner_dir}"
     # local save_path="chkpts/$dataset/${algo}${samp_dir}/${algo}_lr_${lr}${inner_dir}"
@@ -226,8 +233,8 @@ run() {
 # }
 
 get_ordinary_cmd(){
-    for dataset in "${DATA[@]}"; do
-        for algo in "${algos[@]}"; do
+    for algo in "${algos[@]}"; do
+        for dataset in "${DATA[@]}"; do
         for sampling_rate in "${sampling_rates[@]}"; do
         for lr in "${learner_rates[@]}"; do
             if [ "$algo" == "APFL" ]; then
@@ -241,11 +248,23 @@ get_ordinary_cmd(){
     done
 }
 
-get_prox_cmd(){
+get_soft_cmd(){
     for dataset in "${DATA[@]}"; do
+        for sampling_rate in "${sampling_rates[@]}"; do
+        for lr in "${learner_rates[@]}"; do
+            for mu in "${mus[@]}"; do
+                commands+=("run $dataset FedSoft --lr $lr --sampling_rate ${sampling_rate} --n_clusters ${n_clusters} --mu $mu --tau $tau --minibatch")
+            done
+        done
+        done
+    done
+}
+
+get_prox_cmd(){
     for algo in "${algos[@]}"; do
+    for dataset in "${DATA[@]}"; do
+        for sampling_rate in "${sampling_rates[@]}"; do
         for mu in "${mus[@]}"; do
-            for sampling_rate in "${sampling_rates[@]}"; do
                 for lr in "${learner_rates[@]}"; do
             if [ "$algo" == "L2SGD" ]; then
                 commands+=("run $dataset $algo --lr $lr --sampling_rate ${sampling_rate} --comm_prob ${comm_prob} --mu $mu --minibatch")
@@ -263,13 +282,15 @@ get_prox_cmd(){
 
 get_fuzzy_cmd(){
     algo="FuzzyFL" 
-    for pre_rounds in "${pre_rounds_list[@]}"; do
+    for dataset in "${DATA[@]}"; do
+    for lr in "${learner_rates[@]}"; do
+    for sampling_rate in "${sampling_rates[@]}"; do
+        for pre_rounds in "${pre_rounds_list[@]}"; do
         for m in "${fuzzy_m_list[@]}"; do
         for fuzzy_m_momentum in "${fuzzy_m_momentums[@]}"; do
         for fuzzy_m_scheduler in "${fuzzy_m_schedulers[@]}"; do
             for trans in "${trans_list[@]}"; do
             for measurement in "${measurements[@]}"; do
-                for lr in "${learner_rates[@]}"; do
                 if [ "$fuzzy_m_scheduler" == "cosine_annealing" ]; then
                     if [ "$(python -c "print(1 if $m < 1.8 else 0)")" -eq 1 ]; then
                         min_m=$(calculate_min_m 0.1)
@@ -288,8 +309,6 @@ get_fuzzy_cmd(){
                 fi
                 
                 # echo min_m="$min_m"
-                for dataset in "${DATA[@]}"; do
-                for sampling_rate in "${sampling_rates[@]}"; do
                     commands+=("run $dataset $algo --lr $lr --sampling_rate ${sampling_rate} --pre_rounds ${pre_rounds} --n_clusters ${n_clusters} --top $top  --fuzzy_m $m  --trans $trans --min_fuzzy_m ${min_m} --fuzzy_m_scheduler ${fuzzy_m_scheduler} --fuzzy_m_momentum ${fuzzy_m_momentum} --measurement $measurement --minibatch")
                 done
                 done
@@ -467,6 +486,36 @@ for program in "${commands[@]}"; do
 done
 echo 
 }
+
+multi_run() { 
+    current_processes=0
+    for cmd in "${commands[@]}"; do
+        while [ $current_processes -ge $max_concurrent_processes ]; do
+            wait -n  # 等待任何子进程结束
+            ((current_processes--))  # 子进程结束，计数减1
+            echo current_processes = "${current_processes}"
+        done
+        eval "$cmd" &
+        echo 
+        # echo "$cmd" 
+        echo process "$!" start
+        ((current_processes++))
+        echo current_processes = "${current_processes}"
+        sleep 10
+    done
+
+    # 等待剩余的子进程结束
+    while [ $current_processes -gt 0 ]; do
+        wait -n
+        ((current_processes--))
+        echo current_processes = "${current_processes}"
+    done
+
+    echo "All programs have finished execution."
+commands=()
+
+}
+
 show_dict() {
     local -n dict="$1"
     for key in "${!dict[@]}"; do

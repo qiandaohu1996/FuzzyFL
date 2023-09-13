@@ -165,6 +165,7 @@ class FuzzyGroupAggregator(Aggregator):
 
         # self.cluster_comm_clients_weights=self.clients_weights
         # self.cluster_comm_clients_membership_mat=torch.empty((),device=self.device)
+        self.sample_clients()
         
                 
         def update_membership():
@@ -250,7 +251,6 @@ class FuzzyGroupAggregator(Aggregator):
                 # )
             print("after updating membership: ", self.membership_mat[:2])
         
-        self.sample_clients()
         cluster_models = [learner.model for learner in self.cluster_learners]
         client_learners = [client.learners_ensemble[0] for client in self.sampled_clients]
         # cluster_comm_clients_learners = [self.clients[i].learners_ensemble[0] for i in self.cluster_comm_clients_indices]
@@ -263,12 +263,10 @@ class FuzzyGroupAggregator(Aggregator):
             # for client in  self.sampled_clients:
             for client in self.sampled_clients:
                 client.step(self.single_batch_flag)
-            # max_processes = 5  # 可以根据需要设置
             # with ProcessPoolExecutor(max_workers=max_processes) as executor:
             #     executor.map(lambda client: client.step(self.single_batch_flag), self.sampled_clients)
 
             # max_processes = 3  # 可以根据需要设置 def worker(client):
-        
             # with ProcessPoolExecutor(max_workers=max_processes) as executor:
             #     list(executor.map(worker_step, self.sampled_clients))
             # max_threads = 5  # Adjust as needed

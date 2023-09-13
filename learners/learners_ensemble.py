@@ -56,7 +56,20 @@ class LearnersEnsemble(object):
         """
         for learner in self.learners:
             learner.optimizer_step()
+            
+    def compute_losses(self, batch):
+        """
+        计算与每个学习者的损失。
+        :param batch: 一个包含数据和标签的批次
+        :return: 每个数据点和每个学习者的损失
+        """
+        losses = []
+        for learner in self.learners:
+            loss_vec = learner.compute_loss(batch)
+            losses.append(loss_vec)
 
+        return losses
+    
     def compute_gradients_and_loss(self, batch, weights=None):
         """
         compute the gradients and loss over one batch.
