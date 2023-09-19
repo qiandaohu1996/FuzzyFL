@@ -114,9 +114,9 @@ class Learner:
         if self.is_binary_classification:
             y = y.type(torch.float32).unsqueeze(1)
 
-        self.optimizer.zero_grad()
         y_pred = self.model(x)
         loss_vec = self.criterion(y_pred, y)
+        # print("loss_vec ",loss_vec[:10])
         if weights is not None:
             weights = weights.to(self.device)
             loss = (loss_vec * weights[indices]).sum() / loss_vec.size(0)
@@ -126,16 +126,57 @@ class Learner:
         return loss.detach()
     
 
+    # def fit_batch(self, batch, weights=None):
+    #     self.optimizer.zero_grad()
+        
+    #     self.compute_gradients_and_loss(batch, weights)
+
+    #     # gradient_norm = torch.norm(torch.cat([param.grad.flatten() for param in self.model.parameters()]))
+    #     # print(f"before Gradient Norm: {gradient_norm.item():.3f}",)
+    #     torch.nn.utils.clip_grad_norm_(self.model.parameters(), 100.0)
+    #     self.optimizer.step()
+
     def fit_batch(self, batch, weights=None):
+        """
+        perform an optimizer step over one batch drawn from `iterator`
+
+        :param batch: tuple of (x, y, indices)
+        :param weights: tensor with the learners_weights of each sample or None
+        :type weights: torch.tensor or None
+        :return:
+            loss.detach()
+            metric.detach()
+
+        """
         self.model.train()
+
+        x, y, indices = batch
+        x = x.to(self.device).type(torch.float32)
+        y = y.to(self.device)
+
+        if self.is_binary_classification:
+            y = y.type(torch.float32).unsqueeze(1)
+
         self.optimizer.zero_grad()
-        self.compute_gradients_and_loss(batch, weights)
 
-        # gradient_norm = torch.norm(torch.cat([param.grad.flatten() for param in self.model.parameters()]))
-        # print(f"before Gradient Norm: {gradient_norm.item():.3f}",)
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 100.0)
+        y_pred = self.model(x)
+        loss_vec = self.criterion(y_pred, y)
+        metric = self.metric(y_pred, y) / len(y)
+
+        if weights is not None:
+            weights = weights.to(self.device)
+            loss = (loss_vec * weights[indices]).sum() / loss_vec.size(0)
+        else:
+            loss = loss_vec.mean()
+
+        loss.backward()
+
         self.optimizer.step()
+        if self.lr_scheduler:
+            self.lr_scheduler.step()
 
+        return loss.detach(), metric.detach()
+    
     def fit_batch_record_update(self, batch, weights=None):
         client_updates = torch.zeros(self.model_dim)
         old_params = self.get_param_tensor()

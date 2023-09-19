@@ -8,18 +8,17 @@ n_rounds=200
 
 current_processes=0
 pre_rounds_list=("1")
-
+learner_rates=("0.02" "0.05" )
 sampling_rates=( "0.5")
 # sampling_rates=( "1")
 n_clusters=10
 top=5
 commands=()
 
-lr=0.05
 
 DATA=(
-    # "emnist_c5_topk" 
-    "emnist_c5_alpha0.2" 
+    "emnist" 
+    # "emnist_c5_alpha0.2" 
     # "emnist_c5_alpha0.4" 
     # "emnist_c5_alpha0.6" 
     # "emnist_c5_alpha0.8" 
@@ -31,12 +30,14 @@ DATA=(
     # "emnist_n200_c10_alpha0.3" 
     # "emnist_n200_c10_alpha0.4"
     # "emnist_c10_topk" 
-    # "emnist_alpha0.2" 
-    # "emnist_alpha0.6"  
-    # "emnist_alpha0.8" 
-    # "emnist_pathologic_cl5" 
-    # "emnist_pathologic_cl10" 
-    # "emnist_pathologic_cl20" 
+    "emnist_alpha0.2" 
+    "emnist_alpha0.6"  
+    "emnist_alpha0.8" 
+    "emnist_pathologic_cl5" 
+    "emnist_pathologic_cl10" 
+    "emnist_pathologic_cl20" 
+    "cifar10"
+    "cifar100"
     )
 
 multi_run() { 
@@ -67,13 +68,10 @@ commands=()
 
 }
  
-
-learner_rates=("0.05" )
-
 algos=("FedAvg")
 get_ordinary_cmd
  
-max_concurrent_processes=1
+max_concurrent_processes=3
 
 print_programs
 multi_run

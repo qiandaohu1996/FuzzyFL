@@ -20,7 +20,7 @@ seed=666
 torch.manual_seed(seed)
 
 @no_grad()
-def average_learners(
+def average_learners0(
     learners, target_learner, weights=None, average_params=True, average_gradients=False
 ):
     """
@@ -78,6 +78,120 @@ def average_learners(
             for learner_id, learner in enumerate(learners):
                 state_dict = learner.model.state_dict()
                 target_state_dict[key].data.add_(state_dict[key].data)
+
+
+def average_learners(learners, target_learner, weights=None, average_params=True, average_gradients=False):
+    """
+    Compute the average of a list of learners_ensemble and store it into target_learner
+
+    :param learners: List of learners to average.
+    :type learners: List[Learner]
+    :param target_learner: The learner to store the averaged model.
+    :type target_learner: Learner
+    :param weights: Tensor of the same size as learners_ensemble, having values between 0 and 1, and summing to 1,
+                    if None, uniform learners_weights are used.
+    :param average_params: If set to true the parameters are averaged; default is True.
+    :param average_gradients: If set to true the gradient are also averaged; default is False.
+    :type weights: torch.Tensor
+    """
+    if not average_params and not average_gradients:
+        return
+
+    if weights is None:
+        n_learners = len(learners)
+        weights = (1 / n_learners) * torch.ones(n_learners, device=learners[0].device)
+    else:
+        weights = weights.to(learners[0].device)
+
+    target_state_dict = target_learner.model.state_dict(keep_vars=True)
+
+    with torch.no_grad():
+        for key, target_tensor in target_state_dict.items():
+            # For float32 tensors, which include model parameters and gradients
+            if target_tensor.dtype == torch.float32:
+                tensors_to_average = [learner.model.state_dict(keep_vars=True)[key] for learner in learners]
+                
+                # Averaging model parameters
+                if average_params:
+                    weighted_tensors = [w * tensor for w, tensor in zip(weights, tensors_to_average)]
+                    target_tensor.data = sum(weighted_tensors)
+
+                # Averaging gradients if they exist
+                if average_gradients:
+                    weighted_grads = [(w * tensor.grad if tensor.grad is not None else 0) for w, tensor in zip(weights, tensors_to_average)]
+                    total_grad = torch.sum(weighted_grads)
+                    if total_grad != 0:
+                        target_tensor.grad = total_grad
+                    else:
+                        warnings.warn("trying to average_gradients before back propagation, you should set `average_gradients=False`.")
+            else:
+                # Other data types (int, etc.), just sum them for simplicity
+                tensors_to_average = [learner.model.state_dict()[key] for learner in learners]
+                target_tensor.data = sum(tensors_to_average)
+
+
+def average_learners2(learners, target_learner, weights=None, average_params=True, average_gradients=False):
+    """
+    Compute the average of a list of learners_ensemble and store it into target_learner
+
+    :param learners: List of learners to average.
+    :type learners: List[Learner]
+    :param target_learner: The learner to store the averaged model.
+    :type target_learner: Learner
+    :param weights: Tensor of the same size as learners_ensemble, having values between 0 and 1, and summing to 1,
+                    if None, uniform learners_weights are used.
+    :param average_params: If set to true the parameters are averaged; default is True.
+    :param average_gradients: If set to true the gradient are also averaged; default is False.
+    :type weights: torch.Tensor
+    """
+    if not average_params and not average_gradients:
+        return
+
+    if weights is None:
+        n_learners = len(learners)
+        weights = (1 / n_learners) * torch.ones(n_learners, device=learners[0].device)
+    else:
+        weights = weights.to(learners[0].device)
+
+    target_state_dict = target_learner.model.state_dict(keep_vars=True)
+
+    with torch.no_grad():
+        for key, target_tensor in target_state_dict.items():
+            # For float32 tensors, which include model parameters and gradients
+            if target_tensor.dtype == torch.float32:
+                tensors_to_average = [learner.model.state_dict(keep_vars=True)[key] for learner in learners]
+                print('tensors_to_average', len(tensors_to_average))
+                print(len(tensors_to_average[0]))
+                # Averaging model parameters
+                # if average_params:
+                #     stacked_tensors = torch.stack(tensors_to_average, dim=0)
+                #     reshaped_weights = weights[:, None, None]
+                #     weighted_tensors = reshaped_weights * stacked_tensors
+                #     target_tensor.data = torch.sum(weighted_tensors, dim=0)
+                if average_params:
+                    stacked_tensors = torch.stack(tensors_to_average, dim=0)
+                    reshaped_weights = weights.unsqueeze(-1).unsqueeze(-1)
+                    print('stacked_tensors shape ',stacked_tensors.shape)
+                    print('reshaped_weights shape ',reshaped_weights.shape)
+                    while len(reshaped_weights.shape) < len(stacked_tensors.shape):
+                        reshaped_weights = reshaped_weights.unsqueeze(-1)
+                    weighted_tensors = reshaped_weights * stacked_tensors
+                    target_tensor.data = torch.sum(weighted_tensors, dim=0)
+                # Averaging gradients if they exist
+                if average_gradients:
+                    gradient_tensors = [tensor.grad if tensor.grad is not None else torch.zeros_like(tensor) for tensor in tensors_to_average]
+                    stacked_grads = torch.stack(gradient_tensors, dim=0)
+                    weighted_grads = reshaped_weights * stacked_grads
+                    total_grad = torch.sum(weighted_grads, dim=0)
+                    target_tensor.grad = total_grad
+                    
+                    if torch.all(total_grad == 0):
+                        warnings.warn("trying to average_gradients before back propagation, you should set `average_gradients=False`.")
+            else:
+                # Other data types (int, etc.), just sum them for simplicity
+                tensors_to_average = [learner.model.state_dict()[key] for learner in learners]
+                stacked_tensors = torch.stack(tensors_to_average, dim=0)
+                target_tensor.data = torch.sum(stacked_tensors, dim=0)
 
 
 @no_grad()
@@ -150,7 +264,7 @@ def fuzzy_average_cluster_model1(
 
 
 @no_grad()
-def fuzzy_average_cluster_model(
+def fuzzy_average_cluster_model1(
     client_models,
     cluster_models,
     membership_mat,  # use membership matrix instead of weights
@@ -212,6 +326,51 @@ def fuzzy_average_cluster_model(
     with ThreadPoolExecutor(max_workers=max_threads) as executor:
         executor.map(cluster_thread_logic, range(n_clusters))
 
+@torch.no_grad()
+def fuzzy_average_cluster_model(
+    client_models,
+    cluster_models,
+    membership_mat,
+    fuzzy_m,
+    clients_weights,
+    top,
+    average_params=True,
+    average_gradients=False,
+):
+    clients_weights = clients_weights.to(membership_mat.device)
+    n_clients = len(client_models)
+    n_clusters = len(cluster_models)
+    topk_indices = torch.zeros(n_clients, top, device=membership_mat.device) 
+
+    if n_clusters == top:
+        new_membership_mat = membership_mat
+    else:
+        new_membership_mat, topk_indices = select_top_k_cluster(membership_mat, top)
+
+    streams = [torch.cuda.Stream() for _ in range(n_clusters)]
+
+    for cluster_id, stream in enumerate(streams):
+        with torch.cuda.stream(stream):
+            target_state_dict = cluster_models[cluster_id].state_dict(keep_vars=True)
+            
+            for key in target_state_dict:
+                accum_tensor = torch.zeros_like(target_state_dict[key].data, device=membership_mat.device)
+                
+                for client_id, model in enumerate(client_models):
+                    if n_clusters == top or cluster_id in topk_indices[client_id]:
+                        state_dict = model.state_dict(keep_vars=True)
+                        membership_val = (new_membership_mat[client_id][cluster_id] * clients_weights[client_id]) ** fuzzy_m
+                        if state_dict[key].data.dtype == torch.float32:
+                            accum_tensor.add_(membership_val * state_dict[key].data)
+                        else:
+                            accum_tensor.add_(state_dict[key].data.long())
+                total_membership_val = torch.sum((new_membership_mat[:, cluster_id] * clients_weights) ** fuzzy_m)
+                
+                if total_membership_val != 0:
+                    target_state_dict[key].data.copy_(accum_tensor / total_membership_val)
+
+    # Synchronize all streams
+    [stream.synchronize() for stream in streams]
 
 
 @no_grad()
@@ -257,7 +416,7 @@ def fuzzy_average_client_model1(
 
 @no_grad()
 @calc_exec_time(calc_time=calc_time)
-def fuzzy_average_client_model(
+def fuzzy_average_client_model1(
     cluster_models,
     client_models,
     membership_mat,
@@ -302,6 +461,49 @@ def fuzzy_average_client_model(
     with ThreadPoolExecutor(max_workers=max_threads) as executor:
         executor.map(client_thread_logic, range(n_clients))
 
+@torch.no_grad()
+@calc_exec_time(calc_time=calc_time)
+def fuzzy_average_client_model(
+    cluster_models,
+    client_models,
+    membership_mat,
+    top,
+    average_params=True,
+    average_gradients=False,
+):
+
+    n_clients = len(client_models)
+    n_clusters = len(cluster_models)
+    
+    if n_clusters == top:
+        new_membership_mat = membership_mat
+    else:
+        new_membership_mat, topk_indices = select_top_k_cluster(membership_mat, top)
+
+    streams = [torch.cuda.Stream() for _ in range(n_clients)]
+    
+    for client_id in range(n_clients):
+        with torch.cuda.stream(streams[client_id]):
+            target_state_dict = client_models[client_id].state_dict(keep_vars=True)
+            for key in target_state_dict:
+                target_tensor = target_state_dict[key]
+                
+                if target_tensor.dtype == torch.float32:
+                    if n_clusters == top:
+                        iter_clusters = range(n_clusters)
+                    else:
+                        iter_clusters = topk_indices[client_id]
+
+                    tensors_to_sum = [new_membership_mat[client_id][cluster_id] * cluster_models[cluster_id].state_dict()[key] for cluster_id in iter_clusters]
+                    target_tensor.data = torch.sum(torch.stack(tensors_to_sum), dim=0)
+
+                else:
+                    # For non-float32 tensors, just sum them up
+                    tensors_to_sum = [model.state_dict()[key] for model in cluster_models]
+                    target_tensor.data = sum(tensors_to_sum)
+
+    # Synchronize all streams
+    [stream.synchronize() for stream in streams]
 
 def select_top_k_cluster(membership_mat, k):
     # 获取每一行的前k个最大值及其索引

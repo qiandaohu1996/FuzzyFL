@@ -39,7 +39,7 @@ class FuzzyClient(Client):
         )
 
         assert self.n_learners == 1, "FuzzyClient only supports single learner."
-        self.only_with_global = False
+        # self.only_with_global = False
         self.fuzzy_m = initial_fuzzy_m
         # utils.py line 484
         self.fuzzy_m_scheduler = fuzzy_m_scheduler

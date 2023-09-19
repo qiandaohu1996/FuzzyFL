@@ -4,70 +4,6 @@ from torch.optim.optimizer import Optimizer, required
 import numpy as np
 
 
-class SVRG(Optimizer):
-    r""" implement SVRG """
-
-    def __init__(self, parameters, lr=required, freq=10):
-        if lr is not required and lr < 0.0:
-            raise ValueError("Invalid learning rate: {}".format(lr))
-
-        defaults = dict(lr=lr, freq=freq)
-        self.step_counter = 0
-        self.inner_loop_counter = 0
-        self.is_first_step = False
-        super(SVRG, self).__init__(parameters, defaults)
-
-    def __setstate__(self, state):
-        super(SVRG, self).__setstate__(state)
-
-    def step(self, closure=None):
-        """Performs a single optimization step.
-
-        Arguments:
-            closure (callable, optional): A closure that reevaluates the model
-                and returns the loss.
-        """
-        loss = None
-        if closure is not None:
-            loss = closure()
-
-        for group in self.param_groups:
-            frequency = group['freq']
-            for param in group['params']:
-                if param.grad is None:
-                    continue
-                gradient = param.grad.data
-                param_state = self.state[param]
-
-                if 'large_batch_gradient' not in param_state:
-                    buf = param_state['large_batch_gradient'] = torch.zeros_like(param.data)
-                    buf.add_(gradient)
-                    buf2 = param_state['small_batch_gradient'] = torch.zeros_like(param.data)
-
-                buf = param_state['large_batch_gradient']
-                buf2 = param_state['small_batch_gradient']
-
-                if self.step_counter == frequency:
-                    buf.data = gradient.clone()
-                    temp = torch.zeros_like(param.data)
-                    buf2.data = temp.clone()
-
-                if self.inner_loop_counter == 1:
-                    buf2.data.add_(gradient)
-
-                if self.step_counter != frequency and self.is_first_step is True:
-                    param.data.add_(-group['lr'], (gradient - buf2 + buf))
-
-        self.is_first_step = True
-
-        if self.step_counter == frequency:
-            self.step_counter = 0
-            self.inner_loop_counter = 0
-
-        self.step_counter += 1
-        self.inner_loop_counter += 1
-
-        return loss
 
 
 class ProxSGD(Optimizer):
@@ -208,7 +144,8 @@ class SoftProxSGD(Optimizer):
         super(SoftProxSGD, self).__init__(params, defaults)
 
         self.mu = mu
-
+        self.soft_sgd=False
+        
     def step(self, closure=None):
         loss = None
         if closure is not None:
@@ -228,7 +165,7 @@ class SoftProxSGD(Optimizer):
                 
                 # Weight decay
                 if weight_decay != 0:
-                    d_p = d_p.add(p.data, alpha=weight_decay)
+                    d_p.add_(p.data, alpha=weight_decay)
 
                 # Momentum
                 param_state = self.state[p]
@@ -244,30 +181,29 @@ class SoftProxSGD(Optimizer):
                         d_p = buf
 
                 # Proximal term
-                if 'cluster_models' in param_state and 'cluster_weights' in param_state:
-                    for cluster_model, cluster_weight in zip(param_state['cluster_models'], param_state['cluster_weights']):
-                        d_p.add_(p.data - cluster_model, alpha=self.mu * cluster_weight / 2)
-
-        p.data.add_(d_p, alpha=-group['lr'])
-
+                if self.soft_sgd==True:
+                    if 'cluster_model_params_list' in param_state and 'cluster_weights' in param_state:
+                        # print("add proximal term")
+                        for cluster_model_params, cluster_weight in zip(param_state['cluster_model_params_list'], param_state['cluster_weights']):
+                            d_p.add_(p.data - cluster_model_params, alpha=self.mu * cluster_weight / 2)
+                      
+                p.data.add_(d_p, alpha=-group['lr'])
+                        
         return loss
-
-    def set_proximal_params(self, cluster_models, cluster_weights):
-        if len(cluster_models) == 0:
+    
+    def set_proximal_params(self, cluster_model_params_list, cluster_weights):
+        # print("set_proximal_params begin")
+        if len(cluster_model_params_list) == 0:
             raise ValueError("接收到一个空的簇模型列表")
         
-        if len(cluster_models) != len(cluster_weights):
+        if len(cluster_model_params_list) != len(cluster_weights):
             raise ValueError("簇模型和簇权重的长度不匹配")
-
-        # 将每个簇模型转换为参数列表
-        cluster_model_params_list = [list(cluster_model.parameters()) for cluster_model in cluster_models]
-
         for param_group in self.param_groups:
             for param_idx, param in enumerate(param_group['params']):
                 param_state = self.state[param]
                 # 对于每个参数，创建一个与所有簇模型参数关联的列表
-                param_state['cluster_models'] = [torch.clone(cluster_model_params[param_idx].data) for cluster_model_params in cluster_model_params_list]
-                param_state['cluster_weights'] = cluster_weights
+                param_state['cluster_model_params_list'] = [torch.clone(cluster_model_params[param_idx].data) for cluster_model_params in cluster_model_params_list]
+                param_state['cluster_weights'] = cluster_weights.clone()
 
 
 class PerGodGradientDescent(Optimizer):
@@ -330,6 +266,71 @@ class PerGodGradientDescent(Optimizer):
             for p, grad in zip(client.model.parameters(), gdiff):
                 state = self.state[p]
                 state['gold'].copy_(grad)
+                
+class SVRG(Optimizer):
+    r""" implement SVRG """
+
+    def __init__(self, parameters, lr=required, freq=10):
+        if lr is not required and lr < 0.0:
+            raise ValueError("Invalid learning rate: {}".format(lr))
+
+        defaults = dict(lr=lr, freq=freq)
+        self.step_counter = 0
+        self.inner_loop_counter = 0
+        self.is_first_step = False
+        super(SVRG, self).__init__(parameters, defaults)
+
+    def __setstate__(self, state):
+        super(SVRG, self).__setstate__(state)
+
+    def step(self, closure=None):
+        """Performs a single optimization step.
+
+        Arguments:
+            closure (callable, optional): A closure that reevaluates the model
+                and returns the loss.
+        """
+        loss = None
+        if closure is not None:
+            loss = closure()
+
+        for group in self.param_groups:
+            frequency = group['freq']
+            for param in group['params']:
+                if param.grad is None:
+                    continue
+                gradient = param.grad.data
+                param_state = self.state[param]
+
+                if 'large_batch_gradient' not in param_state:
+                    buf = param_state['large_batch_gradient'] = torch.zeros_like(param.data)
+                    buf.add_(gradient)
+                    buf2 = param_state['small_batch_gradient'] = torch.zeros_like(param.data)
+
+                buf = param_state['large_batch_gradient']
+                buf2 = param_state['small_batch_gradient']
+
+                if self.step_counter == frequency:
+                    buf.data = gradient.clone()
+                    temp = torch.zeros_like(param.data)
+                    buf2.data = temp.clone()
+
+                if self.inner_loop_counter == 1:
+                    buf2.data.add_(gradient)
+
+                if self.step_counter != frequency and self.is_first_step is True:
+                    param.data.add_(-group['lr'], (gradient - buf2 + buf))
+
+        self.is_first_step = True
+
+        if self.step_counter == frequency:
+            self.step_counter = 0
+            self.inner_loop_counter = 0
+
+        self.step_counter += 1
+        self.inner_loop_counter += 1
+
+        return loss
 
 
 def get_optimizer(optimizer_name, model, lr_initial, freq=10, mu=0.):
@@ -366,18 +367,17 @@ def get_optimizer(optimizer_name, model, lr_initial, freq=10, mu=0.):
             [param for param in model.parameters() if param.requires_grad],
             mu=mu,
             lr=lr_initial,
-            momentum=0.,
+            momentum=0.9,
             weight_decay=5e-4
         )
-    elif optimizer_name == "soft_proxsgd":
+    elif optimizer_name == "soft_prox_sgd":
         return SoftProxSGD(
             [param for param in model.parameters() if param.requires_grad],
             mu=mu,
             lr=lr_initial,
-            momentum=0.,
+            momentum=0.9,
             weight_decay=5e-4
         )
-        FedSoftOptimizer
     elif optimizer_name == "svrg":
         return SVRG([param for param in model.parameters() if param.requires_grad], lr=lr_initial, freq=freq)
     elif optimizer_name == "pggd":
@@ -385,7 +385,7 @@ def get_optimizer(optimizer_name, model, lr_initial, freq=10, mu=0.):
             [param for param in model.parameters() if param.requires_grad],
             mu=mu,
             lr=lr_initial,
-            momentum=0.,
+            momentum=0.9,
             weight_decay=5e-4
         )
     else:

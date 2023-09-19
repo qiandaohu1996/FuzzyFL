@@ -81,7 +81,7 @@ COLORS = {
     "FuzzyFL": "tab:red",
 }
 
-PROX_METHODS = ["L2SGD", "FedProx", "pFedMe"]
+PROX_METHODS = ["L2SGD", "FedProx", "pFedMe", "FedSoft"]
 # TWO_DIR_METHODS = PROX_METHODS + ["FuzzyFL", "APFL","FedProx","FedEM","FedAvg","clustered"]
 ONE_DIR_METHODS=["FedAvg","FedEM"]
 
@@ -94,13 +94,6 @@ def empty_lst(lst):
                 return False
         return True
 
-
-def check_mu(folder_name):
-    global mu_word
-    if mu_word:
-        if mu_word not in folder_name:
-            return False
-    return True
 
 def parse_string_to_dict(input_string):
     # 使用split方法按照下划线分割字符串
@@ -115,11 +108,11 @@ def parse_string_to_dict(input_string):
     
 def check_lr_samp(first_dir):
     params_dict=parse_string_to_dict(first_dir)
-    # print("params_dict ",params_dict)
+    print("params_dict ",params_dict)
     if not LEARNING_RATES and not SAMPLING_RATES:  # Both lists are empty
         return True
-    # if "seed" not in params_dict:
-    #     return False 
+    if "seed" in params_dict and params_dict['seed'] in ['2345']:
+        return False 
     if params_dict["lr"]==learning_rate and params_dict["samp"] == SAMPLING_RATES[0]:
         return True
     return False
@@ -145,19 +138,18 @@ def replace_list(lst, _strs):
 
 
 def check_fuzzy_folder(folder_name):
-    global FUZZY_CONTAIN_WORDS
     # print(FUZZY_CONTAIN_WORDS)
     parts = folder_name.split("_")
  
-    if empty_lst(FUZZY_CONTAIN_WORDS):
-        return check_folder(folder_name)
-    else:
+    # if empty_lst(FUZZY_CONTAIN_WORDS):
+    return check_folder(folder_name)
+    # else:
         # print("folder_name ", folder_name)
-        parameters = ["_".join(parts[i : i + 2]) for i in range(0, len(parts), 2)]
+        # parameters = ["_".join(parts[i : i + 2]) for i in range(0, len(parts), 2)]
         # print("fuzzy parameters", parameters)
-        if (all(word in parameters for word in FUZZY_CONTAIN_WORDS) and not any(word in parameters for word in FILTER_WORDS)):
+        # if (all(word in parameters for word in FUZZY_CONTAIN_WORDS) and not any(word in parameters for word in FILTER_WORDS)):
             # print("2parameters", parameters)
-            return True
+            # return True
     return False
 
 
@@ -172,25 +164,52 @@ def check_apfl(folder_name):
             return True
     return False
 
-def check_fedem(folder_name):
-    parts = folder_name.split("_")
-    if empty_lst(FEDEM_CONTAIN_WORDS):
-        return check_folder(folder_name)
-    else:
-        parameters = ["_".join(parts[i : i + 2]) for i in range(0, len(parts), 2)]
-        if (all(word in parameters for word in FEDEM_CONTAIN_WORDS)
-                and not any(word in parameters for word in FILTER_WORDS)):
-            return True
-    return False
+# def check_fedem(folder_name):
+#     parts = folder_name.split("_")
+#     if empty_lst(FEDEM_CONTAIN_WORDS):
+#         return check_folder(folder_name)
+#     else:
+#         parameters = ["_".join(parts[i : i + 2]) for i in range(0, len(parts), 2)]
+#         if (all(word in parameters for word in FEDEM_CONTAIN_WORDS)
+#                 and not any(word in parameters for word in FILTER_WORDS)):
+#             return True
+#     return False
 
 def check_folder(folder_name):
     # print("folder_name ", folder_name)
     parameters = parse_string_to_dict(folder_name)
-    # print("parameters", parameters)
-    if not any(word in parameters for word in FILTER_WORDS):
-            return True
-    return False
-
+    print("parameters ", parameters)
+    # print("mt ", mt)
+    # print("pre ", pre_round)
+    # print("m", fuzzy_m)
+    if mu_word!='' and "mu" in parameters:
+        if parameters['mu'] != mu_word:
+            print("mu pass")
+            return False
+    if "pre" in parameters and parameters["pre"] not in pre_round:
+        print("check pre pass....")
+        return False
+    if "m" in parameters and parameters['m'] != fuzzy_m:
+        print("check m pass....")
+        return False
+    if "lr" in parameters and parameters['lr'] != learning_rate:
+        print("check lr pass....")
+        return False
+    if "samp" in parameters and parameters['samp'] != SAMPLING_RATES[0]:
+        print("check samp pass....")
+        return False
+    if "mt" in parameters and parameters['mt'] != mt:
+        print("check mt pass....")
+        return False
+    if "sch" in parameters and len(schedulers)!=0 and parameters['sch'] not in schedulers:
+        return False
+    if "msu" in parameters and len(schedulers)!=0 and parameters['msu'] not in measurements:
+        return False
+    if "learners" in parameters and parameters['learners'] in learners_list:
+        print("check learners pass....")
+        return False      
+    print("check_folder true")
+    return True
 
 def is_plot_visible(method_name):
     if method_name in VISBLE_METHODS and method_name not in INVISBLE_METHODS:
@@ -221,32 +240,22 @@ def extract_event_data(method_path, tag_, task_dir):
 
 
 def extract_label(param_dir):
-    # print("extract_label param_dir: ",param_dir)
-    # param_dir = param_dir.replace("clustered", "clustered FL")
-    # param_dir = param_dir.replace("lr_0.1_", "")
-    param_dir = param_dir.replace("_trans_0.75", "")
-    # param_dir = param_dir.replace("_pre_25", "")
-    param_dir = param_dir.replace("pre_1", "")
-    param_dir = param_dir.replace("samp_0.5", "")
-    param_dir = param_dir.replace("sch_constant", "")
-    param_dir = param_dir.replace("mt_0.8", "")
-    param_dir = param_dir.replace("msu_euclid", "")
-    # param_dir = param_dir.replace("mu_", "mu")
-    minilabel = param_dir.split("_")
-    # print(minilabel)
-    label = " ".join(minilabel)
-    # print(label)
+    dict_=parse_string_to_dict(param_dir)
+    keys_to_delete = [ 'samp','trans','lr','']
+
+    for key in keys_to_delete:
+        if key in dict_:
+            del dict_[key]
+    label = ' '.join(f'{k} {v}' for k, v in dict_.items())
     # print("label  ", label)
     return label
 
 
 def handle_method(ax, method_dir, tag_, task_dir):
     method = method_dir.split(os.path.sep)[-1]
-    # print("method ", method)
+    print()
+    print("method ", method)
     for param_dir in os.listdir(method_dir):
-        if not check_lr_samp(param_dir):
-            # print("sampling rate or learning rate pass...")
-            continue
         if not check_folder(param_dir):
             print("check_folder pass...")
             continue
@@ -263,31 +272,23 @@ def handle_method(ax, method_dir, tag_, task_dir):
 
 def handle_2dir_method(ax, method_dir, tag_, task_dir):
     method = method_dir.split(os.path.sep)[-1]
-    # print("method", method)
+    print()
+    print("method", method)
     for sampling_dir in os.listdir(method_dir):
         if not check_lr_samp(sampling_dir):
-            # print("sample or learning rate pass...")
+            print("sample or learning rate pass...")
             continue
         param_dirs = os.path.join(method_dir, sampling_dir)
         for param_dir in os.listdir(param_dirs):
             # print("param_dir ", param_dir)
             if os.path.isfile(os.path.join(param_dirs, param_dir)):
                 continue
-            if method in PROX_METHODS:
-                if not check_mu(param_dir):
-                    print("mu pass...")
-                    continue
-            if method == "APFL":
+            elif method == "APFL":
                 if not check_apfl(param_dir):
                     print("apfl pass...")
                     continue
-            if method == "FedEM":
-                if not check_fedem(param_dir):
-                    print("fedem learners pass...")
-                    continue
-            if method == "FuzzyFL":
-                if not check_fuzzy_folder(param_dir):
-                    # print("fuzzy pass...")
+            elif not check_folder(param_dir):
+                    print("folder pass...")
                     continue
             param_path = os.path.join(param_dirs, param_dir)
             # print("param_dir ", param_dir)
@@ -300,7 +301,7 @@ def handle_2dir_method(ax, method_dir, tag_, task_dir):
 
 
 def make_plot(path_, tag_, task_dir, save_path):
-    fig, ax = plt.subplots(figsize=(36, 30))
+    fig, ax = plt.subplots(figsize=(48, 40))
     dataset = path_.split(os.path.sep)[-1]
     mode = tag_.split('/')[0].lower()
     print("mode  ", mode)
@@ -374,17 +375,18 @@ def plot(datasets):
         relative_path = os.path.join("logs", dataset)
 
         path = os.path.join(current_dir, relative_path)
-        inder_dir = ""
+        inder_dir = ''
         inder_dir = "lr"+learning_rate+'_'+"samp"+SAMPLING_RATES[0]
+        inder_dir2=''
         # inder_dir += "/Fuzzy"
-        inder_dir2 = "/" + get_figure_folder_name(FUZZY_CONTAIN_WORDS)
-        global mu_word
-        if mu_word != "":
+        # inder_dir2 = "/" + get_figure_folder_name(FUZZY_CONTAIN_WORDS)
             # mu_word = mu_word.replace("_", "")
-            inder_dir += "/" + mu_word.replace("_", "")
+        if mu_word !='':
+            inder_dir += "/mu" + mu_word
+        inder_dir2 += '/mt'+mt+'_'+'m' + fuzzy_m+'_'+'trans'+trans
         print("inder_dir ",inder_dir)
         print("inder_dir2 ",inder_dir2)
-         
+        
         # inder_dir2 += ("/" + task_dir)
         pre_dir=""
         # pre_dir="_"+ORIGIN_FUZZY_CONTAIN_WORDS[0]
@@ -403,7 +405,7 @@ if __name__ == "__main__":
         # "cifar10_alpha0.8",
         # "cifar10_pathologic_cl3",
         # "cifar100",
-        # "emnist",
+        "emnist",
         # "emnist_alpha0.2",
         # "emnist_alpha0.6",
         # "emnist_alpha0.8",
@@ -423,12 +425,13 @@ if __name__ == "__main__":
         # "emnist_c5_alpha0.6",
         # "emnist_c5_alpha0.8",
         # "emnist_c10_alpha0.2",
-        "emnist_c10_alpha0.3",
+        # "emnist_c10_alpha0.3",
         # "emnist_c10_alpha0.4",
         # "emnist_c10_alpha0.5",
         # "emnist_c10_alpha0.6",
         # "emnist_n200_c10_alpha0.3",
         # "emnist_n200_c10_alpha0.4",
+        # "shakespeare_s0.3",
         # "femnist"
     ]
     # datasets = "synthetic00"
@@ -436,98 +439,108 @@ if __name__ == "__main__":
     VISBLE_METHODS = [
         "FedAvg",
         # "L2SGD",
-        # "FedProx",
+        "FedProx",
         # "FedEM",
         "FuzzyFL",
-        # "FedSoft",
+        "FedSoft",
         # "APFL",
         # "clusterd",
         # "FedAvg+",
-        # "pFedMe",
+        "pFedMe",
     ]
     INVISBLE_METHODS = []
     SMOOTH = True
-    # FILTER_WORDS=["samp_0.1", "pre_1", "samp_0.2","samp_1", "sch_cosine", "sch_constant", "mt_0.5" "pre_50"]
     FILTER_WORDS = [
-        "pre_50",  
-        # "sch_constant",
-        "sch_cosine",  
-        "seed_2345",
+         
+        # "seed_2345",
+        "seed_2222",
+        "learners_5",
         # "msu_euclid",
-        # "msu_loss",
-        "level", "alpha_0.5", "alpha_0.75", "grad"]
+        "msu_loss",
+        "level", 
+        {"alpha":[]}, 
+        "grad"]
     # FILTER_WORDS = []
     mu_word = ""
     mu_words = [
         # "",
-        "mu_0.05",
-        # "mu_0.1",
-        # "mu_0.2",
-        # "mu_0.5"
+        # "0",
+        # "0.001",
+        # "0.01",
+        "0.05",
+        # "0.1",
+        # "0.2",
+        # "0.5"
     ]
+    pre_round=[
+        '1',
+        '10',
+        # '11',
+        # '20'
+        ]
+    learners_list=[
+        '3',
+        # '5'
+        ]
     SAMPLING_RATES = ["0.5"]
-    LEARNING_RATES = ["0.02", "0.05", "0.1"]
+    LEARNING_RATES = ["0.05"]
     mt_list = [
         # "",
-        # "mt_0.5",
-        "mt_0.8",
-        # "mt_0"
+        # "0.5",
+        "0.8",
+        # "0"
     ]
-    ORIGIN_FUZZY_CONTAIN_WORDS = [
+    # FUZZY_CONTAIN_WORDS = [
         # "pre_50",
-        "clusters_10",
-        "top_5",
+        # "clusters_10",
+        # "top_5",
         # "constant"
-        ]
+        # ]
     m_list = [
-        # [],
-        # ["m_1.2"],
-        # ["m_1.3"],
-        # ["m_1.4"],        
-        ["m_1.5"],
-        ["m_1.6"],
-        ["m_1.7"],
-        ["m_1.8"],
-        ["m_2"],
-        ["m_2.2"],
-        # ["m_2.4"],
-        # ["m_2.6"],
-        # ["m_2.8"]
-        # ["m_1.9"],
+        # "1.3",
+        # "1.4",        
+        # "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        # "2",        
+        # "2.2",
+        # "2.4",
+        # "2.6",
+        # "2.8"
+        # "1.9",
     ]
-
+    schedulers=[
+        # 'consine',
+        'constant'
+    ]
+    measurements=[
+       'euclid',
+       'loss' 
+    ]
     # print(FUZZY_CONTAIN_WORDS_list)
     trans_list = [
         # "",
-        # "trans_0.5",
-        "trans_0.75",
-        # "trans_0.9"
-        # "trans_0"
+        # "0.5",
+        "0.75",
+        # "0.9"
+        # "0"
     ]
     APFL_CONTAIN_WORDS = ["adaptive"]
-    FEDEM_CONTAIN_WORDS= []
-    FUZZY_CONTAIN_WORDS_list = []
-    combinations = list(itertools.product(mt_list, m_list, trans_list))
-    print(combinations)
-    for combination in combinations:
-        words = []
-        for sublist in combination:
-            if isinstance(sublist, list) and sublist:
-                words += sublist
-            elif sublist:
-                words.append(sublist)
-        FUZZY_CONTAIN_WORDS_list.append(words)
-
-    print(FUZZY_CONTAIN_WORDS_list)
 
     task_dir = "global"
-    for FUZZY_CONTAIN_WORDS in FUZZY_CONTAIN_WORDS_list:
-        # print("FUZZY_CONTAIN_WORDS ", FUZZY_CONTAIN_WORDS)
-        FUZZY_CONTAIN_WORDS = ORIGIN_FUZZY_CONTAIN_WORDS+FUZZY_CONTAIN_WORDS
-        print("FUZZY_CONTAIN_WORDS ", FUZZY_CONTAIN_WORDS)
-        for learning_rate in LEARNING_RATES:
+    # mt=''
+    # fuzzy_m=''
+    # trans=''
+    for learning_rate in LEARNING_RATES:
+        if not mu_words:
+            plot(datasets)
+        else:                
             for mu_word in mu_words:
-                plot(datasets)
+                for fuzzy_m in m_list:
+                    for mt in mt_list:
+                        for trans in trans_list:
+                            plot(datasets)
     # for i in range(5):
     #     task_dir = f"task_{i}"
     #     print(task_dir)

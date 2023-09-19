@@ -12,10 +12,10 @@ declare -g local_steps=1
 declare -g max_concurrent_processes=1
 
 declare -g n_rounds=200
-declare -g log_freq=1
+declare -g log_freq=2
 
 # for all
-declare -g seed=2222
+declare -g seed=1234
 
 declare -g n_learners=1
 
@@ -50,7 +50,7 @@ declare -g commands=()
 set_inner_dir() {
     local param="$1"
     declare -A paramToTemplate
-    paramToTemplate=(["pre_rounds"]="pre_%s"
+    paramToTemplate=(["pre_rounds"]="_pre_%s"
         ["fuzzy_m"]="_m_%s"
         ["min_fuzzy_m"]="_minm_%s"
         ["sampling_rate"]="_samp_%s"
@@ -59,10 +59,10 @@ set_inner_dir() {
         ["fuzzy_m_scheduler"]="_sch_%s"
         ["measurement"]="_msu_%s"
         ["fuzzy_m_momentum"]="_mt_%s"
-        ["comm_prob"]="comm_%s_"
+        ["comm_prob"]="_comm_%s"
         ["n_clusters"]="_clusters_%s"
-        ["n_learners"]="learners_%s"
-        ["mu"]="mu_%s"
+        ["n_learners"]="_learners_%s"
+        ["mu"]="_mu_%s"
     )
 
     if [[ -v "parameters[$param]" ]]; then
@@ -179,9 +179,10 @@ run() {
         optimizer="prox_sgd"
         ;;
     "FedSoft")
+        set_inner_dir "pre_rounds"
         set_inner_dir "mu"
         set_inner_dir "n_clusters"
-        optimizer="soft_proxsgd"
+        optimizer="soft_prox_sgd"
         ;;
     "L2SGD")
         set_inner_dir "comm_prob"
@@ -199,9 +200,10 @@ run() {
     # fi
     echo "$dataset"
     echo "$algo"
+    inner_dir="${inner_dir:1}"
     echo "${inner_dir}"
-    first_dir="lr_${lr}_samp_${sampling_rate}_seed_${seed}"
-    # first_dir="lr_${lr}_samp_${sampling_rate}_seed_$seed"
+    # first_dir="lr_${lr}_samp_${sampling_rate}_seed_${seed}"
+    first_dir="lr_${lr}_samp_${sampling_rate}"
     local log_dir="logs/$dataset/${algo}/${first_dir}/${inner_dir}"
     # local save_path="chkpts/$dataset/${algo}${samp_dir}/${algo}_lr_${lr}${inner_dir}"
     # echo "$log_dir"
@@ -233,8 +235,8 @@ run() {
 # }
 
 get_ordinary_cmd(){
-    for algo in "${algos[@]}"; do
-        for dataset in "${DATA[@]}"; do
+    for dataset in "${DATA[@]}"; do
+        for algo in "${algos[@]}"; do
         for sampling_rate in "${sampling_rates[@]}"; do
         for lr in "${learner_rates[@]}"; do
             if [ "$algo" == "APFL" ]; then
@@ -253,7 +255,9 @@ get_soft_cmd(){
         for sampling_rate in "${sampling_rates[@]}"; do
         for lr in "${learner_rates[@]}"; do
             for mu in "${mus[@]}"; do
-                commands+=("run $dataset FedSoft --lr $lr --sampling_rate ${sampling_rate} --n_clusters ${n_clusters} --mu $mu --tau $tau --minibatch")
+            for pre_rounds in "${pre_rounds_list[@]}"; do
+                commands+=("run $dataset FedSoft --lr $lr --pre_rounds ${pre_rounds} --sampling_rate ${sampling_rate} --n_clusters ${n_clusters} --mu $mu --tau $tau --minibatch")
+            done
             done
         done
         done
@@ -264,14 +268,14 @@ get_prox_cmd(){
     for algo in "${algos[@]}"; do
     for dataset in "${DATA[@]}"; do
         for sampling_rate in "${sampling_rates[@]}"; do
+        for lr in "${learner_rates[@]}"; do
         for mu in "${mus[@]}"; do
-                for lr in "${learner_rates[@]}"; do
             if [ "$algo" == "L2SGD" ]; then
-                commands+=("run $dataset $algo --lr $lr --sampling_rate ${sampling_rate} --comm_prob ${comm_prob} --mu $mu --minibatch")
-            else
                 for comm_prob in "${comm_probs[@]}"; do
-                    commands+=("run $dataset $algo --lr $lr --sampling_rate ${sampling_rate}  --mu $mu --minibatch")
+                commands+=("run $dataset $algo --lr $lr --sampling_rate ${sampling_rate} --comm_prob ${comm_prob} --mu $mu --minibatch")
                 done
+            else
+                commands+=("run $dataset $algo --lr $lr --sampling_rate ${sampling_rate}  --mu $mu --minibatch")
             fi
         done
         done

@@ -488,7 +488,7 @@ class AGFLAggregator(Aggregator):
             self.global_learners_ensemble[0],
             self.sampled_clients_weights,
         )
-
+        print("global_learners_ensemble ",(self.global_learners_ensemble[0].model.parameters()[0].data[:5]))
         for learner in clients_learners:
             copy_model(learner.model, self.global_learners_ensemble[0].model)
             

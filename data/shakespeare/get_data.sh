@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-=======
 #!/usr/bin/env bash
 
->>>>>>> 4088e3c (.)
 if [ ! -d "all_data" ] || [ ! "$(ls -A all_data)" ]; then
     if [ ! -d "raw_data" ]; then
         mkdir raw_data

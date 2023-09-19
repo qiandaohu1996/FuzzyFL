@@ -22,7 +22,6 @@ def run_experiment(args_):
     torch.manual_seed(args_.seed)
 
     data_dir = get_data_dir(args_.experiment)
-
     if "logs_root" in args_:
         logs_root = args_.logs_root
     else:
@@ -34,6 +33,7 @@ def run_experiment(args_):
         clients = init_clients(
             args_, root_path=os.path.join(data_dir, "train"), logs_root=os.path.join(logs_root, "train")
         )
+    
     print("Clients number ", len(clients))
 
     print("==> Test Clients initialization..")

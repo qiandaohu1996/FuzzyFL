@@ -133,8 +133,10 @@ class Client(object):
         self.update_learners_weights()
 
         if single_batch_flag:
+            # print("single_batch_flag")
             for _ in range(self.local_steps):
                 batch = self.get_next_batch()
+                # print("batch len",len(batch[0]))
                 # client_updates = \
                 self.learners_ensemble.fit_batch(
                     batch=batch, weights=self.samples_weights
@@ -166,18 +168,15 @@ class Client(object):
         self.counter += 1
         # self.update_sample_weights()
         # self.update_learners_weights()
-        # print("samples_weights size",self.samples_weights.size())
+        print("samples_weights size",self.samples_weights.size())
         if single_batch_flag:
-            batches = []
             for _ in range(self.local_steps):
                 batch = self.get_next_batch()
-                batches.append(batch)
-
-            client_updates = self.learners_ensemble[0].fit_batches_record_update(
-                batches=batches, weights=self.samples_weights[0] *
-                self.n_learners
-            )
+                client_updates = self.learners_ensemble.fit_batch_record_update(
+                batch=batch, weights=self.samples_weights
+                )
             # print("\nclient_updates ", client_updates)
+            print("\n client_updates shape ", client_updates.shape)
 
         else:
             client_updates = self.learners_ensemble[0].fit_epochs_record_update(

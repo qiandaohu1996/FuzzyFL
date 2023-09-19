@@ -38,7 +38,6 @@ class LearnersEnsemble(object):
     def __init__(self, learners, learners_weights):
         self.learners = learners
         self.learners_weights = learners_weights
-
         self.model_dim = self.learners[0].model_dim
         self.is_binary_classification = self.learners[0].is_binary_classification
         self.device = self.learners[0].device
@@ -307,7 +306,7 @@ class AGFLLearnersEnsemble(LearnersEnsemble):
 
         for learner_id, learner in enumerate(self.learners):
 
-            print("learner", learner_id)
+            # print("learner", learner_id)
             old_params = learner.get_param_tensor()
             if weights is not None:
                 learner.fit_batch(batch=batch, weights=weights[learner_id])
@@ -375,7 +374,7 @@ class GroupAPFLLearnersEnsemble(LearnersEnsemble):
 
         for learner_id, learner in enumerate(self.learners):
 
-            print("learner", learner_id)
+            # print("learner", learner_id)
             old_params = learner.get_param_tensor()
             if weights is not None:
                 learner.fit_batch(batch=batch, weights=weights[learner_id])

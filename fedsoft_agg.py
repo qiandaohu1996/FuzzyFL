@@ -32,7 +32,7 @@ class FedSoftAggregator(Aggregator):
         single_batch_flag,
         mu,
         n_clusters=3,
-        tau=5,
+        tau=1,
         pre_rounds=1,
         sampling_rate=1.0,
         log_freq=10,
@@ -59,75 +59,81 @@ class FedSoftAggregator(Aggregator):
         self.cluster_weights_update_interval = tau
         self.pre_rounds=pre_rounds
         self.n_clusters=n_clusters
-        print("self.clients_weights.shape",self.clients_weights.shape)
         self.aggregation_weights=self.clients_weights.unsqueeze(0).expand(n_clusters, -1)
-        print("aggregation_weights", self.aggregation_weights.shape)
         self.cluster_flag=False
         self.sampled_clients_weights_for_clusters=[]
+
         self.write_logs()
         
     def mix(self):
         # Sample clients for this round
         if self.c_round < self.pre_rounds:
-            self.sample_clients()
             self.pre_train()
-            if self.c_round % self.log_freq == 0 or self.c_round == self.pre_rounds - 1:
-                self.write_logs()
-                self.write_local_test_logs()
         elif self.c_round == self.pre_rounds and self.cluster_flag is False:
             self.pre_clusting()
             self.cluster_flag = True
-            self.c_round -= 1
-            
-        elif self.c_round >= self.pre_rounds:
-            self.sample_clients()
+        elif self.c_round > self.pre_rounds:
+            for client in self.clients:
+                client.learners_ensemble[0].optimizer.soft_sgd=True
             self.train()
-            if self.c_round % self.log_freq == 0 or self.c_round == 199:
-                self.write_logs()
-                self.write_local_test_logs()
+            
+        if self.c_round % self.log_freq == 0 or self.c_round == 199:
+            self.write_logs()
+            self.write_local_test_logs()
                 
         self.c_round += 1
             
     def train(self):
-        
-        self.cluster_models = [learner.model for learner in self.cluster_learners]
-        client_learners = [client.learners_ensemble[0] for client in self.sampled_clients]
-        client_models = [learner.model for learner in client_learners]
+        self.sample_clients()
+        with segment_timing("updating all clients' model"):
+            for client in self.sampled_clients: 
+                client.step(self.single_batch_flag)
+                
+        self.client_learners = [
+            client.learners_ensemble[0] for client in self.sampled_clients
+        ]
+        client0_model=self.sampled_clients[0].learners_ensemble[0].model
+        for index, (param_name, param_tensor) in enumerate(client0_model.named_parameters()):
+            if index == 0:
+                print("param_tensor data", param_tensor.data[0])
+                print("param_tensor grad ", param_tensor.grad.data[0])
+                break
+        cluster_models = [learner.model for learner in self.cluster_learners]
         all_cluster_weights=  torch.zeros((self.n_sampled_clients,self.n_clusters),dtype=torch.float32,device=self.device)
         # If it's time to update cluster weights based on distances
         if self.c_round % self.cluster_weights_update_interval == 0:
             for client_id,client in enumerate(self.sampled_clients):
-                all_cluster_weights[client_id] = client.update_cluster_weights(self.n_clusters)
+                all_cluster_weights[client_id]=client.update_cluster_weights(self.cluster_learners)
             # Update cluster aggregation_weights based on received weights from clients
             self.update_aggregation_weights(all_cluster_weights)
-        
-        self.update_prox_clusters(self.cluster_models,all_cluster_weights)
+            print("all_cluster_weights ", all_cluster_weights[:1])
+            print("aggregation_weights ",self.aggregation_weights[:1])
+            for cluster_id,cluster_learner in enumerate(self.cluster_learners):
+                average_learners(self.client_learners,
+                                 cluster_learner,
+                                 self.aggregation_weights[cluster_id])
+                
+            cluster_model_params_list = [list(cluster_model.parameters()) for cluster_model in cluster_models]
+            
+            self.update_prox_clusters(cluster_model_params_list)
 
         # Let each client perform their local updates 
-        with segment_timing("updating all clients' model"):
-            for client in self.sampled_clients:
-                client.step(self.single_batch_flag)
                 
         average_learners(
-            learners=client_learners,
+            learners=self.client_learners,
             target_learner=self.global_learners_ensemble[0],
+            weights=self.sampled_clients_weights
         )
-        self.aggregate_cluster_model(client_models,self.cluster_models,self.aggregation_weights)
+        self.update_clients()
         
-
-    def aggregate_cluster_model(self,client_models,cluster_models,aggregation_weights):
-        for cluster_id, cluster_model in enumerate(cluster_models):
-            target_state_dict = cluster_model.state_dict(keep_vars=True)
-            for key in target_state_dict:
-                target_state_dict[key].data.zero_()
-                if target_state_dict[key].data.dtype == torch.float32:
-                    for client_id in range(len(client_models)):
-                        client_state_dict = client_models[client_id].state_dict(keep_vars=True)
-                        
-                        # Use the cluster weight of the client for the current cluster as the importance weight
-                        target_state_dict[key].data.add_(aggregation_weights[cluster_id][client_id] * client_state_dict[key].data)
-                        
-    
+    def update_prox_clusters(self,cluster_model_params_list):
+        # Compute weighted sum of cluster models for proximal terms
+        for client_id, client in enumerate(self.sampled_clients):
+            for learner in client.learners_ensemble:
+                if callable(getattr(learner.optimizer, "set_proximal_params", None)):
+                    # 设置近端参数
+                    learner.optimizer.set_proximal_params(cluster_model_params_list, client.cluster_weights)
+                    
     def update_aggregation_weights(self, all_cluster_weights):
         """
         Compute aggregation weights based on received importance weights.
@@ -141,13 +147,9 @@ class FedSoftAggregator(Aggregator):
                             for client_id, client in enumerate(self.sampled_clients))
 
             for client_id, client in enumerate(self.sampled_clients):
-                # 根据给定的公式计算聚合权重
                 numerator = all_cluster_weights[client_id, cluster_id] * client.n_train_samples
                 self.aggregation_weights[cluster_id, client_id] = numerator / denominator
 
-        return self.aggregation_weights
-
-    
     def sample_clients_for_clusters(self, clusters):
         """
         Sample clients for each cluster without repetition.
@@ -160,13 +162,7 @@ class FedSoftAggregator(Aggregator):
                 k=self.n_clients_per_round,
             ))
             all_sampled_clients.update(sampled_clients)
-            self.cluster_to_sampled_clients[cluster_id] = sampled_clients  # 为每个簇存储选择的客户端
-            # self.sampled_clients_weights_for_clusters.append(torch.tensor(
-            # [client.n_train_samples for client in sampled_clients],
-            # dtype=torch.float32,
-            # ))
-            # 为每个簇存储选择的客户端
-            # self.sampled_clients_weights_for_clusters[cluster_id] /= self.sampled_clients_weights.sum()
+            self.cluster_to_sampled_clients[cluster_id] = sampled_clients   
             
         self.sampled_clients=all_sampled_clients
         self.n_sampled_clients = len(all_sampled_clients)
@@ -177,44 +173,44 @@ class FedSoftAggregator(Aggregator):
         )
         self.sampled_clients_weights /= self.sampled_clients_weights.sum()
 
-
-    def update_prox_clusters(self,cluster_models,all_cluster_weights):
-        # Compute weighted sum of cluster models for proximal terms
-        print("all_cluster_weights.shape",all_cluster_weights.shape)
-        for client_id, client in enumerate(self.sampled_clients):
-            client_weights = all_cluster_weights[client_id]  # 获取当前客户端的权重
-
-            for learner in client.learners_ensemble:
-                if callable(getattr(learner.optimizer, "set_proximal_params", None)):
-                    # 设置近端参数
-                    learner.optimizer.set_proximal_params(cluster_models, client_weights)
-                    
-    def update_clients(self):
-        pass
-    
     def pre_train(self):
-
-        for client in self.sampled_clients:
+        self.sample_clients()
+        for client in self.sampled_clients: 
             client.step(self.single_batch_flag)
-
-        clients_learners = [
+        client0_model=self.sampled_clients[0].learners_ensemble[0].model
+        for index, (param_name, param_tensor) in enumerate(client0_model.named_parameters()):
+            if index == 0:
+                print("param_tensor data", param_tensor.data[0])
+                print("param_tensor grad ", param_tensor.grad.data[0])
+                break
+        
+        self.client_learners = [
             client.learners_ensemble[0] for client in self.sampled_clients
         ]
         average_learners(
-            clients_learners,
+            self.client_learners,
             self.global_learners_ensemble[0],
             weights=self.sampled_clients_weights,
         )
-
-        # self.update_clients(self.sampled_clients)
+        print("global_learners_ensemble ",(list(self.global_learners_ensemble[0].model.parameters())[0].data[0]))
+        self.update_clients()
         
     def pre_clusting(self):
         print("\n============start clustring==============")
+        self.sample_clients()
         clients_updates = np.zeros((self.n_sampled_clients, self.model_dim))
-        for client_id, client in enumerate(self.sampled_clients):
+        for client_id, client in enumerate(self.sampled_clients): 
             clients_updates[client_id] = client.step_record_update(
                 self.single_batch_flag
             )
+        client0_model=self.sampled_clients[0].learners_ensemble[0].model
+        for index, (param_name, param_tensor) in enumerate(client0_model.named_parameters()):
+            if index == 0:
+                print("first param_name ", param_name)
+                print("param_tensor data", param_tensor.data[0])
+                print("param_tensor grad ", param_tensor.grad.data[0])
+                break
+            
         similarities = pairwise_distances(clients_updates, metric="cosine")
         clustering = AgglomerativeClustering(
             n_clusters=self.n_clusters, metric="precomputed", linkage="complete"
@@ -224,7 +220,6 @@ class FedSoftAggregator(Aggregator):
             np.argwhere(clustering.labels_ == i).flatten()
             for i in range(self.n_clusters)
         ]
-        # print("clusters_indices ", self.clusters_indices)
 
         print("=============cluster completed===============")
         print("\ndivided into {} clusters:".format(self.n_clusters))
@@ -240,9 +235,7 @@ class FedSoftAggregator(Aggregator):
         for learner in learners:
             learner.device = self.device
 
-        self.cluster_learners = LearnersEnsemble(
-            learners=learners, learners_weights=cluster_weights
-        )
+        self.cluster_learners = LearnersEnsemble(learners=learners, learners_weights=cluster_weights)
 
         for cluster_id, indices in enumerate(self.clusters_indices):
             cluster_weights[cluster_id] = self.sampled_clients_weights[indices].sum()
@@ -255,9 +248,20 @@ class FedSoftAggregator(Aggregator):
                 weights=self.sampled_clients_weights[indices]
                 / cluster_weights[cluster_id],
             )
-
-        # self.global_comm_clients=[self.clients[i] for i in self.global_comm_clients_indices]
-        # self.update_clients(self.sample_clients)
-        # self.sampling_rate=self.initial_sampling_rate
-        # print("init membership_mat ",self.membership_mat[2:5])
-
+        self.client_learners = [
+            client.learners_ensemble[0] for client in self.sampled_clients
+        ]
+        average_learners(
+            learners=self.client_learners,
+            target_learner=self.global_learners_ensemble[0],
+            weights=self.sampled_clients_weights
+        )
+        self.update_clients()
+            
+    def update_clients(self):
+        for client in self.sampled_clients:
+            for learner_id, learner in enumerate(client.learners_ensemble):
+                copy_model(
+                    learner.model, self.global_learners_ensemble[learner_id].model
+                )
+ 
