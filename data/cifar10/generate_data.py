@@ -19,11 +19,7 @@ N_CLASSES = 10
 N_COMPONENTS = 3
 SEED = 12345
 RAW_DATA_PATH = "raw_data/"
-<<<<<<< HEAD
-PATH = "all_data/"
-=======
 PATH = "all_data0/"
->>>>>>> 4088e3c (.)
 
 
 def save_data(l, path_):

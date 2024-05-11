@@ -35,6 +35,8 @@ EMINST_LOADER_LIST = [
     "emnist",
     "emnist20",
     "emnist_c5",
+    "emnist_c5_n50",
+    "emnist_n25",
     "emnist_c5_topk",
     "emnist_c5_alpha0.2",
     "emnist_c5_alpha0.4",
@@ -106,7 +108,9 @@ AGGREGATOR_TYPE = {
     "AGFL": "AGFL",
     "L2SGD": "L2SGD",
     "AFL": "AFL",
-    "FFL": "FFL"
+    "FFL": "FFL",
+    "FedAvgDecentralized": "FedAvgDecentralized",
+    "FuzzyDecentralized": "FuzzyDecentralized"
 }
 
 CLIENT_TYPE = {
@@ -123,6 +127,8 @@ CLIENT_TYPE = {
     "local": "normal",
     "pFedMe": "normal",
     "clustered": "normal",
+    "FedAvgDecentralized": "FedAvgDecentralized",
+    "FuzzyDecentralized": "FuzzyDecentralized"
 }
 
 SHAKESPEARE_CONFIG = {

@@ -10,7 +10,7 @@ from torchvision.models import mobilenet
 
 from .models import *
 
-# import torch.nn as nn
+from torch import nn
 from utils.my_profiler import calc_exec_time
 import torch.multiprocessing as mp
 from concurrent.futures import ThreadPoolExecutor
@@ -23,20 +23,6 @@ torch.manual_seed(seed)
 def average_learners0(
     learners, target_learner, weights=None, average_params=True, average_gradients=False
 ):
-    """
-    Compute the average of a list of learners_ensemble and store it into learner
-
-    :param learners:
-    :type learners: List[Learner]
-    :param target_learner:
-    :type target_learner: Learner
-    :param weights: tensor of the same size as learners_ensemble, having values between 0 and 1, and summing to 1,
-                    if None, uniform learners_weights are used
-    :param average_params: if set to true the parameters are averaged; default is True
-    :param average_gradients: if set to true the gradient are also averaged; default is False
-    :type weights: torch.Tensor
-
-    """
     if not average_params and not average_gradients:
         return
 
@@ -462,7 +448,7 @@ def fuzzy_average_client_model1(
         executor.map(client_thread_logic, range(n_clients))
 
 @torch.no_grad()
-@calc_exec_time(calc_time=calc_time)
+# @calc_exec_time(calc_time=calc_time)
 def fuzzy_average_client_model(
     cluster_models,
     client_models,
@@ -660,6 +646,18 @@ def get_param_tensor(model):
         [param.data.view(-1)
          for param in model.parameters() if param.requires_grad]
     )
+
+def get_layer_param_tensor(model, layer_name):
+    """
+    get `model` parameters of a specific layer as a unique flattened tensor
+    :param model: PyTorch model
+    :param layer_name: name of the layer
+    :return: torch.tensor
+    """
+    for name, param in model.named_parameters():
+        if layer_name in name and param.requires_grad:
+            return param.data.view(-1)
+    return None
 
 
 def get_param_list(models):

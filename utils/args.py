@@ -1,27 +1,74 @@
 import os
 import argparse
 
-
-def args_to_string(args):
-    """
-    Transform experiment's arguments into a string
-    :param args:
-    :return: string
-    """
-    if args.decentralized:
-        return f"{args.experiment}_decentralized"
-
-    args_string = ""
-
-    args_to_show = ["experiment", "method"]
-    for arg in args_to_show:
-        args_string = os.path.join(args_string, str(getattr(args, arg)))
-
-    if args.locally_tune_clients:
-        args_string += "_adapt"
-
-    return args_string
-
+def printdict(dict_):
+    for k,v in dict_.items():
+        print(k,v)
+    
+def get_logdir(args):
+    # if args.decentralized:
+    #     return f"{args.experiment}_decentralized"
+    def add_param_to_dir(param):
+        value = getattr(args, param, None)
+        if value is not None:
+            template = param_template.get(param, f"_{param}_%s")
+            inner_dir += template % value
+    
+    def add_params_to_dir(params):
+        for param, template in param_template.items():
+            value = getattr(args, param, None)
+            if value is not None and param not in params:
+                inner_dir += template % value
+            
+    method=args.method
+    logs_root='logs'  
+    inner_dir=''
+    
+    def hasparam(param):
+        return hasattr(args, param)
+    
+    first_dir = f"lr_{args.lr}_samp_{args.sampling_rate}"
+    if args.use_byzantine:
+        logs_root='logs_byzantine'  
+        first_dir += f"_byzantine_{args.byzantine_ratio}"
+        first_dir += f"_zmax_{args.z_max}"
+    print('first_dir ', first_dir)
+        
+    param_template = {
+        "adaptive": "_adapt",
+        "comm_prob": "_comm_%s",
+        "n_clusters": "_clusters_%s",
+        "mu": "_mu_%s",
+        "byzantine_ratio": "_byzantine_%s",
+        "z_max": "_zmax_%s",
+    }
+    
+    if method=='FuzzyFL':
+        if args.fuzzy_m_scheduler == "multi_step":
+            m_str = f"_sch_multistep_minm_{args.min_fuzzy_m}"
+        elif args.fuzzy_m_scheduler == "cosine_annealing":
+            m_str = f"_sch_cosine_minm_{args.min_fuzzy_m}"
+        elif args.fuzzy_m_scheduler == "constant":
+            m_str = f"_sch_constant"
+        m_str = m_str.lstrip('_')
+        inner_dir += f'_pre_{args.pre_rounds}_{m_str}_m_{args.fuzzy_m}_msu_{args.measurement}_trans_{args.trans}_mt_{args.fuzzy_m_momentum}'
+        if hasparam('n_clusters'):
+            inner_dir+=f'_clusters_{args.n_clusters}'
+            if args.n_clusters !=args.top:
+                inner_dir+=f'_top_{args.top}'
+    if method=='FedAvg':
+        if args.locally_tune_clients==True:
+            method+='_Adapt'
+    if method=='FedEM':
+        inner_dir+=f'_nlearners_{args.n_learners}'
+    if method in ['FedProx','pFedMe']:
+        inner_dir+=f'_mu_{args.mu}'
+    
+    inner_dir = inner_dir.lstrip('_')
+    print('inner_dir ', inner_dir)
+    log_dir = os.path.join(logs_root, args.experiment, method, first_dir, inner_dir)
+    print('log_dir ', log_dir)
+    return log_dir
 
 def parse_args(args_list=None):
     parser = argparse.ArgumentParser(description=__doc__)
@@ -47,9 +94,24 @@ def parse_args(args_list=None):
     )
     parser.add_argument(
         "--sampling_rate",
-        help="proportion of clients to be used at each round; default is 1.0",
+        help="proportion of clients to be used at each round; default is 0.1",
         type=float,
         default=1.0,
+    )
+    parser.add_argument(
+        "--byzantine_ratio",
+        help="proportion of byzantine clients; default is 0.1",
+        type=float,
+        default=0.1,
+    )
+    parser.add_argument(
+        "--use_byzantine",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--z_max",
+        type=float,
+        default=0.1,
     )
     parser.add_argument(
         "--measurement",
@@ -147,6 +209,7 @@ def parse_args(args_list=None):
         "--minibatch",
         help="if selected,  choose minibatch gradient descent",
         action="store_true",
+        default=True,
     )
     parser.add_argument(
         "--fuzzy_m_momentum",
@@ -210,7 +273,7 @@ def parse_args(args_list=None):
     # )
     parser.add_argument(
         "--comm_prob",
-        help="communication probability, used with L2SGD and AGFL",
+        help="communication probability, used with L2SGD, AGFL and FuzzyDecentralized",
         type=float,
         default=0.1,
     )

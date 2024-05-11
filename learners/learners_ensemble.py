@@ -8,134 +8,35 @@ from utils.torch_utils import partial_average
 
 
 class LearnersEnsemble(object):
-    """
-    Iterable Ensemble of Learners.
-
-    Attributes
-    ----------
-    learners
-    learners_weights
-    model_dim
-    is_binary_classification
-    device
-    metric
-
-    Methods
-    ----------
-    __init__
-    __iter__
-    __len__
-    compute_gradients_and_loss
-    optimizer_step
-    fit_epochs
-    evaluate
-    gather_losses
-    free_memory
-    free_gradients
-
-    """
-
     def __init__(self, learners, learners_weights):
         self.learners = learners
         self.learners_weights = learners_weights
         self.model_dim = self.learners[0].model_dim
         self.is_binary_classification = self.learners[0].is_binary_classification
         self.device = self.learners[0].device
-        self.metric = self.learners[0].metric
-
-    def __setitem__(self, index, value):
-        if isinstance(value, Learner):                    # 假设Learner是可接受的类类型
-            self.learners[index] = value
-        else:
-            raise TypeError("Expected a Learner object.")
-
+        self.metric = self.learners[0].metric 
+        
     def optimizer_step(self):
-        """
-        perform one optimizer step, requires the gradients to be already computed
-        """
         for learner in self.learners:
             learner.optimizer_step()
-            
-    def compute_losses(self, batch):
-        """
-        计算与每个学习者的损失。
-        :param batch: 一个包含数据和标签的批次
-        :return: 每个数据点和每个学习者的损失
-        """
-        losses = []
-        for learner in self.learners:
-            loss_vec = learner.compute_loss(batch)
-            losses.append(loss_vec)
-
-        return losses
-    
-    def compute_gradients_and_loss(self, batch, weights=None):
-        """
-        compute the gradients and loss over one batch.
-
-        :param batch: tuple of (x, y, indices)
-        :param weights: tensor with the learners_weights of each sample or None
-        :type weights: torch.tensor or None
-        :return:
-            loss
-
-        """
-        losses = []
-        for learner in self.learners:
-            loss = learner.compute_gradients_and_loss(batch, weights=weights)
-            losses.append(loss)
-
-        return losses
-
+                
     def fit_batch(self, batch, weights):
-
+        losses = []
+        metrics = []
         for learner_id, learner in enumerate(self.learners):
-            if weights is not None:
-                learner.fit_batch(batch=batch, weights=weights[learner_id])
-            else:
-                learner.fit_batch(batch=batch, weights=None)
-
-    def fit_batch_record_update(self, batch, weights):
-
-        client_updates = torch.zeros(len(self.learners), self.model_dim)
-
-        for learner_id, learner in enumerate(self.learners):
-            old_params = learner.get_param_tensor()
-            if weights is not None:
-                learner.fit_batch(batch=batch, weights=weights[learner_id])
-            else:
-                learner.fit_batch(batch=batch, weights=None)
-            params = learner.get_param_tensor()
-            client_updates[learner_id] = (params - old_params)
-
-        return client_updates.cpu().numpy()
+            loss, metric = learner.fit_batch(batch, weights=weights[learner_id] if weights is not None else None)
+            losses.append(loss)
+            metrics.append(metric)
+        return sum(losses) / len(losses), sum(metrics) / len(metrics)   
 
     def fit_batches(self, batch, n_batches, weights):
-
         for learner_id, learner in enumerate(self.learners):
             if weights is not None:
                 learner.fit_batches(batch, n_batches, weights=weights[learner_id])
             else:
                 learner.fit_batches(batch, n_batches, weights=None)
-
-    def fit_batches_record_update(self, batch, n_batches, weights):
-
-        client_updates = torch.zeros(len(self.learners), self.model_dim)
-
-        for learner_id, learner in enumerate(self.learners):
-            old_params = learner.get_param_tensor()
-            if weights is not None:
-                learner.fit_batches(batch, n_batches, weights=weights[learner_id])
-            else:
-                learner.fit_batches(batch, n_batches, weights=None)
-            params = learner.get_param_tensor()
-
-            client_updates[learner_id] = (params - old_params)
-
-        return client_updates.cpu().numpy()
-
+                
     def fit_epoch(self, iterator, weights=None):
-
         for learner_id, learner in enumerate(self.learners):
             if weights is not None:
                 learner.fit_epoch(iterator, weights=weights[learner_id])
@@ -143,31 +44,39 @@ class LearnersEnsemble(object):
                 learner.fit_epoch(iterator, weights=None)
 
     def fit_epochs(self, iterator, n_epochs, weights=None):
-
         for learner_id, learner in enumerate(self.learners):
             if weights is not None:
                 learner.fit_epochs(iterator, n_epochs, weights=weights[learner_id])
             else:
-                learner.fit_epochs(iterator, n_epochs, weights=None)
-
-    def fit_epochs_record_update(self, iterator, n_epochs, weights=None):
-        """
-        perform multiple training epochs, updating each learner in the ensemble
-
-        :param iterator:
-        :type iterator: torch.utils.data.DataLoader
-        :param n_epochs: number of epochs
-        :type n_epochs: int
-        :param weights: tensor of shape (n_learners, len(iterator)), holding the weight of each sample in iterator
-                        for each learner ins ensemble_learners
-        :type weights: torch.tensor or None
-        :return:
-            client_updates (np.array, shape=(n_learners, model_dim)): the difference between the old parameter
-            and the updated parameters for each learner in the ensemble.
-
-        """
+                learner.fit_epochs(iterator, n_epochs, weights=None)  
+                
+    def fit_batch_record_update(self, batch, weights):
         client_updates = torch.zeros(len(self.learners), self.model_dim)
+        for learner_id, learner in enumerate(self.learners):
+            old_params = learner.get_param_tensor()
+            if weights is not None:
+                learner.fit_batch(batch=batch, weights=weights[learner_id])
+            else:
+                learner.fit_batch(batch=batch, weights=None)
+            params = learner.get_param_tensor()
+            client_updates[learner_id] = (params - old_params)
+        return client_updates.cpu().numpy()
 
+    def fit_batches_record_update(self, batch, n_batches, weights):
+        client_updates = torch.zeros(len(self.learners), self.model_dim)
+        for learner_id, learner in enumerate(self.learners):
+            old_params = learner.get_param_tensor()
+            if weights is not None:
+                learner.fit_batches(batch, n_batches, weights=weights[learner_id])
+            else:
+                learner.fit_batches(batch, n_batches, weights=None)
+            params = learner.get_param_tensor()
+            client_updates[learner_id] = (params - old_params)
+
+        return client_updates.cpu().numpy()
+ 
+    def fit_epochs_record_update(self, iterator, n_epochs, weights=None):
+        client_updates = torch.zeros(len(self.learners), self.model_dim)
         for learner_id, learner in enumerate(self.learners):
             old_params = learner.get_param_tensor()
             if weights is not None:
@@ -175,25 +84,14 @@ class LearnersEnsemble(object):
             else:
                 learner.fit_epochs(iterator, n_epochs, weights=None)
             params = learner.get_param_tensor()
-
             client_updates[learner_id] = (params - old_params)
-
         return client_updates.cpu().numpy()
 
     def evaluate_iterator(self, iterator):
-        """
-        Evaluate a ensemble of learners on iterator.
-
-        :param iterator: yields x, y, indices
-        :type iterator: torch.utils.data.DataLoader
-        :return: global_loss, global_acc
-
-        """
         if self.is_binary_classification:
             criterion = nn.BCELoss(reduction="none")
         else:
             criterion = nn.NLLLoss(reduction="none")
-
         for learner in self.learners:
             learner.model.eval()
         global_loss = 0.
@@ -226,33 +124,24 @@ class LearnersEnsemble(object):
             return global_loss / n_samples, global_metric / n_samples
 
     def gather_losses(self, iterator):
-        """
-        gathers losses for all sample in iterator for each learner in ensemble
-
-        :param iterator:
-        :type iterator: torch.utils.data.DataLoader
-        :return
-            tensor (n_learners, n_samples) with losses of all elements of the iterator.dataset
-
-        """
         n_samples = len(iterator.dataset)
         all_losses = torch.zeros(len(self.learners), n_samples)
         for learner_id, learner in enumerate(self.learners):
             all_losses[learner_id] = learner.gather_losses(iterator)
-
         return all_losses
-
-    def free_memory(self):
-        """
-        free_memory: free the memory allocated by the model weights
-        """
+    
+    def compute_gradients_and_loss(self, batch, weights=None):
+        losses = []
+        for _, learner in enumerate(self.learners):
+            loss = learner.compute_gradients_and_loss(batch, weights=weights)
+            losses.append(loss)
+        return losses
+    
+    def free_memory(self): 
         for learner in self.learners:
             learner.free_memory()
 
-    def free_gradients(self):
-        """
-        free memory allocated by gradients
-        """
+    def free_gradients(self): 
         for learner in self.learners:
             learner.free_gradients()
 

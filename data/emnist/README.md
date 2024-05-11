@@ -58,21 +58,16 @@ emnist
 
 python generate_data.py   --n_tasks 100   --n_components 3  --alpha 0.4   --s_frac 0.1   --tr_frac 0.8   --test_tasks_frac 0.2  --val_frac 0.2  --seed 12345
 
-<<<<<<< HEAD
-=======
 python generate_data.py   --n_tasks 100   --n_components 3  --alpha 0.4   --s_frac 0.1   --tr_frac 0.8   --test_tasks_frac 0.2  --val_frac 0.2  --seed 23456
 
 python generate_data.py   --n_tasks 100   --n_components 3  --alpha 0.2   --s_frac 0.1   --tr_frac 0.8   --test_tasks_frac 0.2  --val_frac 0.2  --seed 23456
 
-python generate_data.py   --n_tasks 100   --n_components 3  --alpha 0.8   --s_frac 0.1   --tr_frac 0.8   --test_tasks_frac 0.2  --val_frac 0.2  --seed 23456
+python generate_data.py   --n_tasks 50   --n_components 3  --alpha 0.8   --s_frac 0.1   --tr_frac 0.8   --test_tasks_frac 0.2  --val_frac 0.2  --seed 12345
 
->>>>>>> 4088e3c (.)
 
 emnist_c5
 
-python generate_data.py   --n_tasks 100   --n_components 5  --alpha 0.4   --s_frac 0.1   --tr_frac 0.8   --test_tasks_frac 0.2 --val_frac 0.2  --seed 12345
-<<<<<<< HEAD
-=======
+python generate_data.py   --n_tasks 25   --n_components 5  --alpha 0.4   --s_frac 0.1   --tr_frac 0.8   --test_tasks_frac 0.2 --val_frac 0.2  --seed 12345
 python generate_data.py   --n_tasks 100   --n_components 5  --alpha 0.2   --s_frac 0.1   --tr_frac 0.8   --test_tasks_frac 0.2 --val_frac 0.2  --seed 12345
 python generate_data.py   --n_tasks 100   --n_components 5  --alpha 0.6   --s_frac 0.1   --tr_frac 0.8   --test_tasks_frac 0.2 --val_frac 0.2  --seed 12345
 python generate_data.py   --n_tasks 100   --n_components 5  --alpha 0.8   --s_frac 0.1   --tr_frac 0.8   --test_tasks_frac 0.2 --val_frac 0.2  --seed 12345
@@ -91,28 +86,21 @@ emnist_n200_c10
 python generate_data.py   --n_tasks 200   --n_components 10  --alpha 0.3   --s_frac 0.2   --tr_frac 0.8   --test_tasks_frac 0.2 --val_frac 0.2  --seed 23456
 
 
->>>>>>> 4088e3c (.)
 
 
 emnist_pathologic_cl5
 
 python generate_data.py   --n_tasks 100   --pathological_split --n_shards 5 --alpha 0.4   --s_frac 0.1   --tr_frac 0.8   --test_tasks_frac 0.2 --val_frac 0.2  --seed 12345
-<<<<<<< HEAD
-
-=======
 python generate_data.py   --n_tasks 100   --pathological_split --n_shards 5 --alpha 0.4   --s_frac 0.1   --tr_frac 0.8   --test_tasks_frac 0.2 --val_frac 0.2  --seed 23456
 
 emnist_pathologic_cl10
 
 python generate_data.py   --n_tasks 100   --pathological_split --n_shards 10 --alpha 0.4   --s_frac 0.1   --tr_frac 0.8   --test_tasks_frac 0.2 --val_frac 0.2  --seed 12345
 python generate_data.py   --n_tasks 100   --pathological_split --n_shards 10 --alpha 0.4   --s_frac 0.1   --tr_frac 0.8   --test_tasks_frac 0.2 --val_frac 0.2  --seed 23456
->>>>>>> 4088e3c (.)
 
 emnist_pathologic_cl20
 
 python generate_data.py   --n_tasks 100   --pathological_split --n_shards 20 --alpha 0.4   --s_frac 0.1   --tr_frac 0.8   --test_tasks_frac 0.2 --val_frac 0.2  --seed 12345
-<<<<<<< HEAD
-=======
 python generate_data.py   --n_tasks 100   --pathological_split --n_shards 20 --alpha 0.4   --s_frac 0.1   --tr_frac 0.8   --test_tasks_frac 0.2 --val_frac 0.2  --seed 23456
 
 
@@ -121,5 +109,4 @@ emnist_alpha0.6
 python generate_data.py   --n_tasks 100   --n_components 3  --alpha 0.6   --s_frac 0.1   --tr_frac 0.8   --test_tasks_frac 0.2  --val_frac 0.2  --seed 12345
 python generate_data.py   --n_tasks 100   --n_components 3  --alpha 0.6   --s_frac 0.1   --tr_frac 0.8   --test_tasks_frac 0.2  --val_frac 0.2  --seed 23456
 
->>>>>>> 4088e3c (.)
 

@@ -4,8 +4,6 @@ from torch.optim.optimizer import Optimizer, required
 import numpy as np
 
 
-
-
 class ProxSGD(Optimizer):
     r"""Adaptation of  torch.optim.SGD to proximal stochastic gradient descent (optionally with momentum),
      presented in `Federated optimization in heterogeneous networks`__.

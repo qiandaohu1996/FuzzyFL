@@ -1,0 +1,233 @@
+clusters_labels
+[[38, 18, 55, 60, 8, 3, 15, 37, 21, 45, 1, 4, 28, 31, 57, 50, 56, 20, 13, 44], [29, 24, 14, 59, 25, 42, 34, 30, 2, 47, 6, 9, 48, 32, 61, 33, 5, 22, 41, 43, 39], [11, 40, 35, 16, 49, 7, 53, 10, 27, 36, 17, 12, 23, 54, 19, 51, 58, 52, 0, 46, 26]]
+label2cluster
+{38: 0, 18: 0, 55: 0, 60: 0, 8: 0, 3: 0, 15: 0, 37: 0, 21: 0, 45: 0, 1: 0, 4: 0, 28: 0, 31: 0, 57: 0, 50: 0, 56: 0, 20: 0, 13: 0, 44: 0, 29: 1, 24: 1, 14: 1, 59: 1, 25: 1, 42: 1, 34: 1, 30: 1, 2: 1, 47: 1, 6: 1, 9: 1, 48: 1, 32: 1, 61: 1, 33: 1, 5: 1, 22: 1, 41: 1, 43: 1, 39: 1, 11: 2, 40: 2, 35: 2, 16: 2, 49: 2, 7: 2, 53: 2, 10: 2, 27: 2, 36: 2, 17: 2, 12: 2, 23: 2, 54: 2, 19: 2, 51: 2, 58: 2, 52: 2, 0: 2, 46: 2, 26: 2}
+clients_counts
+[[ 759   31  190 1031  348  343    0   68  413  979  222  138  127 1664
+   387    3  155  207  603  431  392   27  116  297  183  359  205  143
+   469   93  188   23  375 1126  595   92  140   67  141  848   55   86
+    44  267  357  485   15   81   52  235   23  238  257  315  649    1
+   245  259  717    8  216   97   12  304  296    2  395   74   90   30
+    80  135  556   40  487   10  113  210  507  101  645 1426  308  593
+     1   33   11  351  323   41   48  491  114  200  313  508  177  121
+    44   93]
+ [ 554  119  156  152  225    4  262  252   97   88  176  123  458  206
+   787  344  421 1187  310  172  266  371 1075   31   47  181   92  106
+   292  129   48  625  315  127  649  608  109 1286  584  199  810  856
+    18 1047    9  101  445  222  130   37  773  354    1  148   80  102
+    26  241  704  524    4  253  454  195  243  259  776   90  217    8
+   558  539  526  172  852  207  291   99  278   42  282  136   57  279
+   211  456  376  640  165  251  139  301   27   56  467  427  164  156
+   130   36]
+ [ 286   55  495  205   69  105   26  101  298  402  546  133   20    3
+   134  337  517   87  247   39  214   42   70    5  114  424  217  417
+   443   57   83  771  832  110   30   75   70  391  147   35  185   29
+   744  191  398  130    5  116  167   74  140  385   28   13   11   31
+   383    0  265   60  234  932  163  109  777  684  535    4  269  175
+   513   20  447   96   96  501  195  178  224  543  228  306   36  330
+   117  493  202    5   40   66  247  131   15  432   76  170   41  285
+   822   38]]
+len(poor_clients)
+0
+len(rich_clients)
+96
+len(client[0]): 1599
+len(client[1]): 205
+len(client[2]): 841
+len(client[3]): 1388
+len(client[4]): 642
+len(client[5]): 452
+len(client[6]): 288
+len(client[7]): 421
+len(client[8]): 808
+len(client[9]): 1469
+len(client[10]): 944
+len(client[11]): 394
+len(client[12]): 605
+len(client[13]): 1873
+len(client[14]): 1308
+len(client[15]): 684
+len(client[16]): 1093
+len(client[17]): 1481
+len(client[18]): 1160
+len(client[19]): 642
+len(client[20]): 872
+len(client[21]): 440
+len(client[22]): 1261
+len(client[23]): 333
+len(client[24]): 344
+len(client[25]): 964
+len(client[26]): 514
+len(client[27]): 666
+len(client[28]): 1204
+len(client[29]): 279
+len(client[30]): 319
+len(client[31]): 1419
+len(client[32]): 1522
+len(client[33]): 1363
+len(client[34]): 1274
+len(client[35]): 775
+len(client[36]): 319
+len(client[37]): 1744
+len(client[38]): 872
+len(client[39]): 1082
+len(client[40]): 1050
+len(client[41]): 971
+len(client[42]): 806
+len(client[43]): 1505
+len(client[44]): 764
+len(client[45]): 716
+len(client[46]): 465
+len(client[47]): 419
+len(client[48]): 349
+len(client[49]): 346
+len(client[50]): 936
+len(client[51]): 977
+len(client[52]): 286
+len(client[53]): 476
+len(client[54]): 740
+len(client[55]): 134
+len(client[56]): 654
+len(client[57]): 500
+len(client[58]): 1686
+len(client[59]): 592
+len(client[60]): 454
+len(client[61]): 1282
+len(client[62]): 629
+len(client[63]): 608
+len(client[64]): 1316
+len(client[65]): 945
+len(client[66]): 1706
+len(client[67]): 168
+len(client[68]): 576
+len(client[69]): 213
+len(client[70]): 1151
+len(client[71]): 694
+len(client[72]): 1529
+len(client[73]): 308
+len(client[74]): 1435
+len(client[75]): 718
+len(client[76]): 599
+len(client[77]): 487
+len(client[78]): 1009
+len(client[79]): 686
+len(client[80]): 1155
+len(client[81]): 1868
+len(client[82]): 401
+len(client[83]): 1202
+len(client[84]): 329
+len(client[85]): 982
+len(client[86]): 589
+len(client[87]): 996
+len(client[88]): 528
+len(client[89]): 358
+len(client[90]): 434
+len(client[91]): 923
+len(client[92]): 156
+len(client[93]): 688
+len(client[94]): 856
+len(client[95]): 1105
+len(client[96]): 382
+len(client[97]): 562
+len(client[98]): 996
+len(client[99]): 167
+Client 0 has samples in clusters: [759 554 286]
+Client 1 has samples in clusters: [ 31 119  55]
+Client 2 has samples in clusters: [190 156 495]
+Client 3 has samples in clusters: [1031  152  205]
+Client 4 has samples in clusters: [348 225  69]
+Client 5 has samples in clusters: [343   4 105]
+Client 6 has samples in clusters: [  0 262  26]
+Client 7 has samples in clusters: [ 68 252 101]
+Client 8 has samples in clusters: [413  97 298]
+Client 9 has samples in clusters: [979  88 402]
+Client 10 has samples in clusters: [222 176 546]
+Client 11 has samples in clusters: [138 123 133]
+Client 12 has samples in clusters: [127 458  20]
+Client 13 has samples in clusters: [1664  206    3]
+Client 14 has samples in clusters: [387 787 134]
+Client 15 has samples in clusters: [  3 344 337]
+Client 16 has samples in clusters: [155 421 517]
+Client 17 has samples in clusters: [ 207 1187   87]
+Client 18 has samples in clusters: [603 310 247]
+Client 19 has samples in clusters: [431 172  39]
+Client 20 has samples in clusters: [392 266 214]
+Client 21 has samples in clusters: [ 27 371  42]
+Client 22 has samples in clusters: [ 116 1075   70]
+Client 23 has samples in clusters: [297  31   5]
+Client 24 has samples in clusters: [183  47 114]
+Client 25 has samples in clusters: [359 181 424]
+Client 26 has samples in clusters: [205  92 217]
+Client 27 has samples in clusters: [143 106 417]
+Client 28 has samples in clusters: [469 292 443]
+Client 29 has samples in clusters: [ 93 129  57]
+Client 30 has samples in clusters: [188  48  83]
+Client 31 has samples in clusters: [ 23 625 771]
+Client 32 has samples in clusters: [375 315 832]
+Client 33 has samples in clusters: [1126  127  110]
+Client 34 has samples in clusters: [595 649  30]
+Client 35 has samples in clusters: [ 92 608  75]
+Client 36 has samples in clusters: [140 109  70]
+Client 37 has samples in clusters: [  67 1286  391]
+Client 38 has samples in clusters: [141 584 147]
+Client 39 has samples in clusters: [848 199  35]
+Client 40 has samples in clusters: [ 55 810 185]
+Client 41 has samples in clusters: [ 86 856  29]
+Client 42 has samples in clusters: [ 44  18 744]
+Client 43 has samples in clusters: [ 267 1047  191]
+Client 44 has samples in clusters: [357   9 398]
+Client 45 has samples in clusters: [485 101 130]
+Client 46 has samples in clusters: [ 15 445   5]
+Client 47 has samples in clusters: [ 81 222 116]
+Client 48 has samples in clusters: [ 52 130 167]
+Client 49 has samples in clusters: [235  37  74]
+Client 50 has samples in clusters: [ 23 773 140]
+Client 51 has samples in clusters: [238 354 385]
+Client 52 has samples in clusters: [257   1  28]
+Client 53 has samples in clusters: [315 148  13]
+Client 54 has samples in clusters: [649  80  11]
+Client 55 has samples in clusters: [  1 102  31]
+Client 56 has samples in clusters: [245  26 383]
+Client 57 has samples in clusters: [259 241   0]
+Client 58 has samples in clusters: [717 704 265]
+Client 59 has samples in clusters: [  8 524  60]
+Client 60 has samples in clusters: [216   4 234]
+Client 61 has samples in clusters: [ 97 253 932]
+Client 62 has samples in clusters: [ 12 454 163]
+Client 63 has samples in clusters: [304 195 109]
+Client 64 has samples in clusters: [296 243 777]
+Client 65 has samples in clusters: [  2 259 684]
+Client 66 has samples in clusters: [395 776 535]
+Client 67 has samples in clusters: [74 90  4]
+Client 68 has samples in clusters: [ 90 217 269]
+Client 69 has samples in clusters: [ 30   8 175]
+Client 70 has samples in clusters: [ 80 558 513]
+Client 71 has samples in clusters: [135 539  20]
+Client 72 has samples in clusters: [556 526 447]
+Client 73 has samples in clusters: [ 40 172  96]
+Client 74 has samples in clusters: [487 852  96]
+Client 75 has samples in clusters: [ 10 207 501]
+Client 76 has samples in clusters: [113 291 195]
+Client 77 has samples in clusters: [210  99 178]
+Client 78 has samples in clusters: [507 278 224]
+Client 79 has samples in clusters: [101  42 543]
+Client 80 has samples in clusters: [645 282 228]
+Client 81 has samples in clusters: [1426  136  306]
+Client 82 has samples in clusters: [308  57  36]
+Client 83 has samples in clusters: [593 279 330]
+Client 84 has samples in clusters: [  1 211 117]
+Client 85 has samples in clusters: [ 33 456 493]
+Client 86 has samples in clusters: [ 11 376 202]
+Client 87 has samples in clusters: [351 640   5]
+Client 88 has samples in clusters: [323 165  40]
+Client 89 has samples in clusters: [ 41 251  66]
+Client 90 has samples in clusters: [ 48 139 247]
+Client 91 has samples in clusters: [491 301 131]
+Client 92 has samples in clusters: [114  27  15]
+Client 93 has samples in clusters: [200  56 432]
+Client 94 has samples in clusters: [313 467  76]
+Client 95 has samples in clusters: [508 427 170]
+Client 96 has samples in clusters: [177 164  41]
+Client 97 has samples in clusters: [121 156 285]
+Client 98 has samples in clusters: [ 44 130 822]
+Client 99 has samples in clusters: [93 36 38]

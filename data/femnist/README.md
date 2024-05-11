@@ -35,10 +35,7 @@ In order to generate the data split for Table 3 (Unseen clients), run
 python generate_data.py    --s_frac 0.15     --tr_frac 0.8    --val_frac 0.2  --train_tasks_frac 0.8  --seed 12345
 ```
 
-<<<<<<< HEAD
-=======
 python generate_data.py    --s_frac 0.15     --tr_frac 0.8    --val_frac 0.2  --train_tasks_frac 0.8  --seed 23456
->>>>>>> 4088e3c (.)
 
 
 python generate_data.py    --s_frac 0.01     --tr_frac 0.8     --val_frac 0.2     --train_tasks_frac 0.8     --seed 12345

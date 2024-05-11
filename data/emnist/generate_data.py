@@ -18,11 +18,7 @@ EMNIST.url = "https://www.itl.nist.gov/iaui/vip/cs_links/EMNIST/gzip.zip"
 
 N_CLASSES = 62
 RAW_DATA_PATH = "raw_data/"
-<<<<<<< HEAD
-PATH = "all_data/"
-=======
 PATH = "all_data0/"
->>>>>>> 4088e3c (.)
 
 
 def save_data(l, path_):
@@ -105,9 +101,9 @@ def main():
                 frac=args.s_frac,
                 seed=args.seed,
             )
-    for i in range(len(clients_indices)):
-        print("client ", i)
-        print("len: ", len(clients_indices[i]))
+    # for i in range(len(clients_indices)):
+    #     print("client ", i)
+    #     print("len: ", len(clients_indices[i]))
         # print("indice ", i)
     if args.test_tasks_frac > 0:
         train_clients_indices, test_clients_indices = \

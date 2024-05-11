@@ -1,51 +1,39 @@
+import csv
 import torch
 import time
-from fuzzy_agg import FuzzyGroupAggregator
-from fuzzy_client import FuzzyClient
-from fedsoft_agg import FedSoftAggregator
-from fedsoft_client import FedSoftClient
+import sys
+
+from utils.csvlogger import CSVLogger
+from utils.decentralized import get_mixing_matrix
+sys.path.append("./")
+
+import random
+
+from client import *
+from server import *
+from server.FuzzyAgg import FuzzyGroupAggregator
+from client.FuzzyClient import FuzzyClient
+
+from client.FedSoftClient import FedSoftClient
+from client.FuzzyDecentralizedClient import FuzzyDecentralizedClient
+from server.FuzzyDecentralizedSystem import FuzzyDecentralizedSystem
+
 from utils.fuzzy_utils import get_fuzzy_m_scheduler
 
 from utils.models import *
 from utils.datasets import *
 from learners.learner import *
 from learners.learners_ensemble import *
-from client import *
-from aggregator import *
-import sys
-sys.path.append("./")
 
 from .optim import *
 from .metrics import *
 from .constants import *
-from .decentralized import *
-
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 
 from tqdm import tqdm
+# import csv
 
-# from prefetch_generator import BackgroundGenerator
-
-
-def get_data_dir(experiment_name):
-    """
-    returns a string representing the path where to find the datafile corresponding to the experiment
-
-    :param experiment_name: name of the experiment
-    :return: str
-
-    """
-    data_dir = os.path.join("data", experiment_name, "all_data")
-
-    return data_dir
-
-
-# @calc_exec_time(calc_time=True)
-# @memory_profiler
-
-
-
+             
 def get_learner(
     name,
     device,
@@ -57,24 +45,10 @@ def get_learner(
     seed,
     input_dim=None,
     output_dim=None,
+    is_byzantine=False,
+    z_max=0.1  # 拜占庭攻击强度
 ):
-    """
-    constructs the learner corresponding to an experiment for a given seed
-
-    :param name: name of the experiment to be used; possible are
-                 {`synthetic`, `cifar10`, `emnist`, `shakespeare`}
-    :param device: used device; possible `cpu` and `cuda`
-    :param optimizer_name: passed as argument to utils.optim.get_optimizer
-    :param scheduler_name: passed as argument to utils.optim.get_lr_scheduler
-    :param initial_lr: initial value of the learning rate
-    :param mu: proximal term weight, only used when `optimizer_name=="prox_sgd"`
-    :param input_dim: input dimension, only used for synthetic dataset
-    :param output_dim: output_dimension; only used for synthetic dataset
-    :param n_rounds: number of training rounds, only used if `scheduler_name == multi_step`, default is None;
-    :param seed:
-    :return: Learner
-
-    """
+ 
     torch.manual_seed(seed)
     if name in SYNTHETIC_LIST:
         if output_dim == 2:
@@ -159,6 +133,8 @@ def get_learner(
             optimizer=optimizer,
             lr_scheduler=lr_scheduler,
             is_binary_classification=is_binary_classification,
+            is_byzantine=is_byzantine,
+            z_max=z_max  # 拜占庭攻击强度
         )
 
 
@@ -177,26 +153,9 @@ def get_learners_ensemble(
     seed,
     input_dim=None,
     output_dim=None,
+    is_byzantine=False,
+    z_max=0.1  # 拜占庭攻击强度
 ):
-    """
-    constructs the learner corresponding to an experiment for a given seed
-
-    :param n_learners: number of learners in the ensemble
-    :param name: name of the experiment to be used; possible are
-                 {`synthetic`, `cifar10`, `emnist`, `shakespeare`}
-    :param device: used device; possible `cpu` and `cuda`
-    :param optimizer_name: passed as argument to utils.optim.get_optimizer
-    :param scheduler_name: passed as argument to utils.optim.get_lr_scheduler
-    :param initial_lr: initial value of the learning rate
-    :param mu: proximal term weight, only used when `optimizer_name=="prox_sgd"`
-    :param input_dim: input dimension, only used for synthetic dataset
-    :param output_dim: output_dimension; only used for synthetic dataset
-    :param n_rounds: number of training rounds, only used if `scheduler_name == multi_step`, default is None;
-    :param seed:
-    :return: LearnersEnsemble
-
-    """
-
     learners = [
         get_learner(
             name=name,
@@ -209,6 +168,8 @@ def get_learners_ensemble(
             n_rounds=n_rounds,
             seed=seed + learner_id,
             mu=mu,
+            is_byzantine=is_byzantine,
+            z_max=z_max  # 拜占庭攻击强度
         )
         for learner_id in range(n_learners)
     ]
@@ -237,20 +198,6 @@ def get_learners_ensemble(
 
 
 def get_loaders(type_, root_path, batch_size, is_validation):
-    """
-    constructs lists of `torch.utils.DataLoader` object from the given files in `root_path`;
-     corresponding to `train_iterator`, `val_iterator` and `test_iterator`;
-     `val_iterator` iterates on the same dataset as `train_iterator`, the difference is only in drop_last
-
-    :param type_: type of the dataset;
-    :param root_path: path to the data folder
-    :param batch_size:
-    :param is_validation: (bool) if `True` validation part is used as test
-    :return:
-        train_iterator, val_iterator, test_iterator
-        (List[torch.utils.DataLoader], List[torch.utils.DataLoader], List[torch.utils.DataLoader])
-
-    """
     if type_ in CIFAR10_LIST:
         inputs, targets = get_cifar10()
     elif type_ in CIFAR100_LIST:
@@ -261,8 +208,9 @@ def get_loaders(type_, root_path, batch_size, is_validation):
         inputs, targets = None, None
 
     train_iterators, val_iterators, test_iterators = [], [], []
-
-    for task_id, task_dir in enumerate(tqdm(os.listdir(root_path))):
+    sys.stdout.flush()
+    for task_id, task_dir in enumerate(tqdm(os.listdir(root_path), dynamic_ncols=True)):
+        sys.stdout.flush()
         task_data_path = os.path.join(root_path, task_dir)
         extension = get_extension(type_)
         train_iterator = get_loader(
@@ -273,7 +221,6 @@ def get_loaders(type_, root_path, batch_size, is_validation):
             targets=targets,
             train=True,
         )
-
         val_iterator = get_loader(
             type_=type_,
             path=os.path.join(task_data_path, f"train{extension}"),
@@ -282,12 +229,10 @@ def get_loaders(type_, root_path, batch_size, is_validation):
             targets=targets,
             train=False,
         )
-
         if is_validation:
             test_set = "val"
         else:
             test_set = "test"
-
         test_iterator = get_loader(
             type_=type_,
             path=os.path.join(task_data_path, f"{test_set}{extension}"),
@@ -296,27 +241,13 @@ def get_loaders(type_, root_path, batch_size, is_validation):
             targets=targets,
             train=False,
         )
-
         train_iterators.append(train_iterator)
         val_iterators.append(val_iterator)
         test_iterators.append(test_iterator)
-
     return train_iterators, val_iterators, test_iterators
 
 
 def get_loader(type_, path, batch_size, train, inputs=None, targets=None):
-    """
-    constructs a torch.utils.DataLoader object from the given path
-
-    :param type_: type of the dataset; possible are `tabular`, `images` and `text`
-    :param path: path to the data file
-    :param batch_size:
-    :param train: flag indicating if train loader or test loader
-    :param inputs: tensor storing the input data; only used with `cifar10`, `cifar100` and `emnist`; default is None
-    :param targets: tensor storing the labels; only used with `cifar10`, `cifar100` and `emnist`; default is None
-    :return: torch.utils.DataLoader
-
-    """
     if type_ == "tabular":
         dataset = TabularDataset(path)
     elif type_ in CIFAR10_LIST:
@@ -337,7 +268,6 @@ def get_loader(type_, path, batch_size, train, inputs=None, targets=None):
     if len(dataset) == 0:
         return
 
-    # drop last batch, because of BatchNorm layer used in mobilenet_v2
     drop_last = (
         ((type_ in CIFAR100_LIST) or (type_ in CIFAR10_LIST))
         and (len(dataset) > batch_size)
@@ -347,21 +277,10 @@ def get_loader(type_, path, batch_size, train, inputs=None, targets=None):
     return DataLoader(
         dataset, batch_size=batch_size, pin_memory=True, shuffle=train, drop_last=drop_last
     )
-
-# @memory_profiler
-# os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
-
+ 
 
 def init_clients(args_, root_path, logs_root):
-    """
-    initialize clients from data folders
-    :param args_:
-    :param root_path: path to directory containing data folders
-    :param logs_root: path to logs root
-    :return: List[Client]
-    """
     print("===> Building data iterators..")
-
     train_iterators, val_iterators, test_iterators = get_loaders(
         type_=get_loader_type(args_.experiment),
         root_path=root_path,
@@ -371,15 +290,23 @@ def init_clients(args_, root_path, logs_root):
 
     print("===> Initializing clients..")
     clients_ = []
+    total_clients = len(train_iterators)
+    if args_.use_byzantine:
+        byzantine_ratio = args_.byzantine_ratio  
+        byzantine_count = int(byzantine_ratio * total_clients)
+        byzantine_indices = random.sample(range(total_clients), byzantine_count)
+        print("byzantine_count/total_clients ", f'{byzantine_count}/{total_clients}')
+        print("byzantine_indices ", byzantine_indices)
+
     for task_id, (train_iterator, val_iterator, test_iterator) in enumerate(
-        tqdm(
-            zip(train_iterators, val_iterators, test_iterators),
-            total=len(train_iterators),
-        )
+        tqdm(zip(train_iterators, val_iterators, test_iterators), total=total_clients, dynamic_ncols=True)
     ):
-        # print("task_id ",task_id)
+        sys.stdout.flush()
+        
         if train_iterator is None or test_iterator is None:
             continue
+        
+        is_byzantine = task_id in byzantine_indices if args_.use_byzantine else False
         learners_ensemble = get_learners_ensemble(
             n_learners=args_.n_learners,
             name=args_.experiment,
@@ -395,11 +322,18 @@ def init_clients(args_, root_path, logs_root):
             n_rounds=args_.n_rounds,
             seed=args_.seed,
             mu=args_.mu,
+            is_byzantine=is_byzantine,  # Pass this flag to the client
+            z_max=args_.z_max
         )
-        logs_path = os.path.join(logs_root, "task_{}".format(task_id))
-        os.makedirs(logs_path, exist_ok=True)
-        logger = SummaryWriter(logs_path)
+        os.makedirs(logs_root, exist_ok=True)
+        log_path = os.path.join(logs_root, f"task_{task_id}.csv")
+        
+        logger = CSVLogger()
+        logger.openfile(log_path, 'w', newline='')
+        header=["Round", "TrainLoss", "TrainAcc", "TestLoss", "TestAcc"]
+        logger.writerow(header)
 
+        # Determine if this client should be Byzantine
         client = get_client(
             client_type=CLIENT_TYPE[args_.method],
             learners_ensemble=learners_ensemble,
@@ -407,6 +341,7 @@ def init_clients(args_, root_path, logs_root):
             initial_fuzzy_m=args_.fuzzy_m,
             min_fuzzy_m=args_.min_fuzzy_m,
             fuzzy_m_scheduler_name=args_.fuzzy_m_scheduler,
+            comm_prob=args_.comm_prob,
             n_rounds=args_.n_rounds,
             trans=args_.trans,
             idx=task_id,
@@ -416,6 +351,7 @@ def init_clients(args_, root_path, logs_root):
             logger=logger,
             local_steps=args_.local_steps,
             tune_locally=args_.locally_tune_clients,
+            seed=args_.seed,
         )
 
         clients_.append(client)
@@ -432,29 +368,15 @@ def get_client(
     n_rounds,
     trans,
     idx,
+    comm_prob,
     train_iterator,
     val_iterator,
     test_iterator,
     logger,
     local_steps,
     tune_locally,
+    seed 
 ):
-    """
-
-    :param client_type:
-    :param learners_ensemble:
-    :param q: fairness hyper-parameter, ony used for FFL client
-    :param train_iterator:
-    :param val_iterator:
-    :param test_iterator:
-    :param logger:
-    :param local_steps:
-    :param tune_locally
-
-    :return:
-
-    """
-
     if client_type == "mixture":
         return MixtureClient(
             learners_ensemble=learners_ensemble,
@@ -465,6 +387,8 @@ def get_client(
             logger=logger,
             local_steps=local_steps,
             tune_locally=tune_locally,
+            # is_byzantine = is_byzantine,
+            # z_max = z_max 
         )
     elif client_type == "AFL":
         return AgnosticFLClient(
@@ -475,6 +399,8 @@ def get_client(
             logger=logger,
             local_steps=local_steps,
             tune_locally=tune_locally,
+            # is_byzantine = is_byzantine
+            # z_max = z_max 
         )
     elif client_type == "FFL":
         return FFLClient(
@@ -506,7 +432,6 @@ def get_client(
             min_fuzzy_m=min_fuzzy_m,
             n_rounds=n_rounds,
         )
-
         return FuzzyClient(
             learners_ensemble=learners_ensemble,
             train_iterator=train_iterator,
@@ -518,7 +443,35 @@ def get_client(
             trans=trans,
             logger=logger,
             local_steps=local_steps,
+            tune_locally=tune_locally 
+        )
+    elif client_type == "FuzzyDecentralized": 
+        return FuzzyDecentralizedClient(
+            learners_ensemble=learners_ensemble,
+            train_iterator=train_iterator,
+            val_iterator=val_iterator,
+            test_iterator=test_iterator,
+            initial_fuzzy_m=initial_fuzzy_m,
+            comm_prob=comm_prob,
+            idx=idx,
+            logger=logger,
+            local_steps=local_steps,
             tune_locally=tune_locally,
+            seed=seed,
+        )
+    elif client_type == "FedAvgDecentralized": 
+        return FedAvgDecentralizedClient(
+            learners_ensemble=learners_ensemble,
+            train_iterator=train_iterator,
+            val_iterator=val_iterator,
+            test_iterator=test_iterator,
+            initial_fuzzy_m=initial_fuzzy_m,
+            comm_prob=comm_prob,
+            idx=idx,
+            logger=logger,
+            local_steps=local_steps,
+            tune_locally=tune_locally,
+            seed=seed,
         )
     else:
         return Client(
@@ -529,7 +482,7 @@ def get_client(
             idx=idx,
             logger=logger,
             local_steps=local_steps,
-            tune_locally=tune_locally,
+            tune_locally=tune_locally 
         )
 
 
@@ -549,46 +502,22 @@ def get_aggregator(
     n_clusters,
     top,
     tau,
-    global_train_logger,
-    global_test_logger,
-    local_test_logger,
+    train_client_global_logger,
+    test_client_global_logger,
     test_clients,
     verbose,
     pre_rounds,
     single_batch_flag,
     seed=None,
 ):
-    """
-    `personalized` corresponds to pFedMe
-
-    :param aggregator_type:
-    :param clients:
-    :param global_learners_ensemble:
-    :param lr: oly used with FLL aggregator
-    :param lr_lambda: only used with Agnostic aggregator
-    :param mu: penalization term, only used with L2SGD
-    :param comm_prob: communication probability, only used with L2SGD
-    :param q: fairness hyper-parameter, ony used for FFL client
-    :param sampling_rate:
-    :param log_freq:
-    :param global_train_logger:
-    :param global_test_logger:
-    :param test_clients
-    :param pre_rounds
-    :param verbose: level of verbosity
-    :param seed: default is None
-    :return:
-
-    """
     seed = seed if (seed is not None and seed >= 0) else int(time.time())
     if aggregator_type == "no_communication":
         return NoCommunicationAggregator(
             clients=clients,
             global_learners_ensemble=global_learners_ensemble,
             log_freq=log_freq,
-            global_train_logger=global_train_logger,
-            global_test_logger=global_test_logger,
-            local_test_logger=local_test_logger,
+            train_client_global_logger=train_client_global_logger,
+            test_client_global_logger=test_client_global_logger,
             test_clients=test_clients,
             single_batch_flag=single_batch_flag,
             sampling_rate=sampling_rate,
@@ -600,9 +529,8 @@ def get_aggregator(
             clients=clients,
             global_learners_ensemble=global_learners_ensemble,
             log_freq=log_freq,
-            global_train_logger=global_train_logger,
-            global_test_logger=global_test_logger,
-            local_test_logger=local_test_logger,
+            train_client_global_logger=train_client_global_logger,
+            test_client_global_logger=test_client_global_logger,
             test_clients=test_clients,
             sampling_rate=sampling_rate,
             verbose=verbose,
@@ -614,9 +542,8 @@ def get_aggregator(
             clients=clients,
             global_learners_ensemble=global_learners_ensemble,
             log_freq=log_freq,
-            global_train_logger=global_train_logger,
-            global_test_logger=global_test_logger,
-            local_test_logger=local_test_logger,
+            train_client_global_logger=train_client_global_logger,
+            test_client_global_logger=test_client_global_logger,
             test_clients=test_clients,
             single_batch_flag=single_batch_flag,
             sampling_rate=sampling_rate,
@@ -629,9 +556,8 @@ def get_aggregator(
             global_learners_ensemble=global_learners_ensemble,
             log_freq=log_freq,
             test_clients=test_clients,
-            global_train_logger=global_train_logger,
-            global_test_logger=global_test_logger,
-            local_test_logger=local_test_logger,
+            train_client_global_logger=train_client_global_logger,
+            test_client_global_logger=test_client_global_logger,
             single_batch_flag=single_batch_flag,
             sampling_rate=sampling_rate,
             verbose=verbose,
@@ -642,9 +568,8 @@ def get_aggregator(
             clients=clients,
             global_learners_ensemble=global_learners_ensemble,
             log_freq=log_freq,
-            global_train_logger=global_train_logger,
-            global_test_logger=global_test_logger,
-            local_test_logger=local_test_logger,
+            train_client_global_logger=train_client_global_logger,
+            test_client_global_logger=test_client_global_logger,
             single_batch_flag=single_batch_flag,
             test_clients=test_clients,
             comm_prob=comm_prob,
@@ -660,9 +585,8 @@ def get_aggregator(
             log_freq=log_freq,
             test_clients=test_clients,
             lr_lambda=lr_lambda,
-            global_train_logger=global_train_logger,
-            global_test_logger=global_test_logger,
-            local_test_logger=local_test_logger,
+            train_client_global_logger=train_client_global_logger,
+            test_client_global_logger=test_client_global_logger,
             single_batch_flag=single_batch_flag,
             sampling_rate=sampling_rate,
             verbose=verbose,
@@ -676,9 +600,8 @@ def get_aggregator(
             test_clients=test_clients,
             lr=lr,
             q=q,
-            global_train_logger=global_train_logger,
-            global_test_logger=global_test_logger,
-            local_test_logger=local_test_logger,
+            train_client_global_logger=train_client_global_logger,
+            test_client_global_logger=test_client_global_logger,
             single_batch_flag=single_batch_flag,
             sampling_rate=sampling_rate,
             verbose=verbose,
@@ -694,46 +617,69 @@ def get_aggregator(
             mixing_matrix=mixing_matrix,
             log_freq=log_freq,
             test_clients=test_clients,
-            global_train_logger=global_train_logger,
-            global_test_logger=global_test_logger,
-            local_test_logger=local_test_logger,
+            train_client_global_logger=train_client_global_logger,
+            test_client_global_logger=test_client_global_logger,
             sampling_rate=sampling_rate,
             single_batch_flag=single_batch_flag,
             verbose=verbose,
             seed=seed,
         )
-    elif aggregator_type == "AGFL":
-        return AGFLAggregator(
+    elif aggregator_type == "FuzzyDecentralized":
+        return FuzzyDecentralizedSystem(
             clients=clients,
             global_learners_ensemble=global_learners_ensemble,
             log_freq=log_freq,
-            pre_rounds=pre_rounds,
             test_clients=test_clients,
-            global_train_logger=global_train_logger,
-            global_test_logger=global_test_logger,
-            local_test_logger=local_test_logger,
-            comm_prob=comm_prob,
+            train_client_global_logger=train_client_global_logger,
+            test_client_global_logger=test_client_global_logger,
             sampling_rate=sampling_rate,
             single_batch_flag=single_batch_flag,
             verbose=verbose,
             seed=seed,
         )
-    elif aggregator_type == "AGFL2":
-        return GroupAPFL(
+    elif aggregator_type == "FedAvgDecentralized":
+        return FedAvgDecentralizedSystem(
             clients=clients,
             global_learners_ensemble=global_learners_ensemble,
             log_freq=log_freq,
-            pre_rounds=pre_rounds,
             test_clients=test_clients,
-            global_train_logger=global_train_logger,
-            global_test_logger=global_test_logger,
-            comm_prob=comm_prob,
-            local_test_logger=local_test_logger,
+            train_client_global_logger=train_client_global_logger,
+            test_client_global_logger=test_client_global_logger,
             sampling_rate=sampling_rate,
             single_batch_flag=single_batch_flag,
             verbose=verbose,
             seed=seed,
         )
+    # elif aggregator_type == "AGFL":
+    #     return AGFLAggregator(
+    #         clients=clients,
+    #         global_learners_ensemble=global_learners_ensemble,
+    #         log_freq=log_freq,
+    #         pre_rounds=pre_rounds,
+    #         test_clients=test_clients,
+    #         train_client_global_logger=train_client_global_logger,
+    #         test_client_global_logger=test_client_global_logger,
+    #         comm_prob=comm_prob,
+    #         sampling_rate=sampling_rate,
+    #         single_batch_flag=single_batch_flag,
+    #         verbose=verbose,
+    #         seed=seed,
+    #     )
+    # elif aggregator_type == "AGFL2":
+    #     return GroupAPFL(
+    #         clients=clients,
+    #         global_learners_ensemble=global_learners_ensemble,
+    #         log_freq=log_freq,
+    #         pre_rounds=pre_rounds,
+    #         test_clients=test_clients,
+    #         train_client_global_logger=train_client_global_logger,
+    #         test_client_global_logger=test_client_global_logger,
+    #         comm_prob=comm_prob,
+    #         sampling_rate=sampling_rate,
+    #         single_batch_flag=single_batch_flag,
+    #         verbose=verbose,
+    #         seed=seed,
+    #     )
     elif aggregator_type == "FuzzyFL":
         return FuzzyGroupAggregator(
             clients=clients,
@@ -745,9 +691,8 @@ def get_aggregator(
             top=top,
             fuzzy_m_momentum=fuzzy_m_momentum,
             measurement=measurement,
-            global_train_logger=global_train_logger,
-            global_test_logger=global_test_logger,
-            local_test_logger=local_test_logger,
+            train_client_global_logger=train_client_global_logger,
+            test_client_global_logger=test_client_global_logger,
             comm_prob=comm_prob,
             sampling_rate=sampling_rate,
             single_batch_flag=single_batch_flag,
@@ -762,9 +707,8 @@ def get_aggregator(
             test_clients=test_clients,
             pre_rounds=pre_rounds,
             n_clusters=n_clusters,
-            global_train_logger=global_train_logger,
-            global_test_logger=global_test_logger,
-            local_test_logger=local_test_logger,
+            train_client_global_logger=train_client_global_logger,
+            test_client_global_logger=test_client_global_logger,
             mu=mu,
             tau=tau,
             sampling_rate=sampling_rate,
@@ -779,9 +723,8 @@ def get_aggregator(
             global_learners_ensemble=global_learners_ensemble,
             log_freq=log_freq,
             test_clients=test_clients,
-            global_train_logger=global_train_logger,
-            global_test_logger=global_test_logger,
-            local_test_logger=local_test_logger,
+            train_client_global_logger=train_client_global_logger,
+            test_client_global_logger=test_client_global_logger,
             single_batch_flag=single_batch_flag,
             sampling_rate=sampling_rate,
             verbose=verbose,

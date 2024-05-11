@@ -1,3 +1,4 @@
+import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -23,8 +24,6 @@ class LinearLayer(nn.Module):
     def forward(self, x):
         return self.fc(x)
 
-
-class FemnistCNN(nn.Module):
     """
     Implements a model with two convolutional layers followed by pooling, and a final dense layer with 2048 units.
     Same architecture used for FEMNIST in "LEAF: A Benchmark for Federated Settings"__
@@ -34,6 +33,9 @@ class FemnistCNN(nn.Module):
 
     # @calc_exec_time(calc_time=True)
     # @memory_profiler
+    
+class FemnistCNN(nn.Module):
+   
     def __init__(self, num_classes):
         super(FemnistCNN, self).__init__()
         self.conv1 = nn.Conv2d(1, 32, 5)
@@ -42,9 +44,7 @@ class FemnistCNN(nn.Module):
 
         self.fc1 = nn.Linear(64 * 4 * 4, 1024)
         self.output = nn.Linear(1024, num_classes)
-
-    # @calc_exec_time(calc_time=True)
-    # @memory_profiler
+        
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
@@ -52,7 +52,6 @@ class FemnistCNN(nn.Module):
         x = F.relu(self.fc1(x))
         x = self.output(x)
         return x
-
 
 class CIFAR10CNN(nn.Module):
     # @calc_exec_time(calc_time=True)
